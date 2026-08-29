@@ -113,3 +113,46 @@ asc.RegisterGameplayTagEvent(MyTags.Stunned, GameplayTagEventType.NewOrRemoved, 
 ExecCalc 伤害）、Sprint（Infinite GE + 每秒体力消耗、输入释放结束）、Jump（NonInstanced）、
 Passive Armor Stacks（4 秒 1 层、上限 4、受击掉层）、CounterAttack（Event.Hit 触发），
 以及眩晕、减速、叠加护甲、周期治疗等 GE 和静态/Actor 两类 Cue。
+
+## 接入 Unity / Godot
+
+核心库多目标发布：**`netstandard2.1`**（Unity 2019.4+ / Unity 6 的 Mono 与 IL2CPP、Godot 4 C# 均可直接加载）
+与 **`net10.0`**（桌面/服务器；本项目内 Sample/Demo/Tests 也用这个目标）。核心库不含任何引擎 API，
+引擎侧的胶水（输入桥接、Cue 表现、资产导入）由接入方实现。
+
+### Unity
+
+1. `dotnet build src/GasNet -c Release`，把 `bin/Release/netstandard2.1/GasNet.dll` 放进 `Assets/Plugins/`
+   （或用 NuGetForUnity 以包形式引入）。
+2. IL2CPP 防裁剪：属性系统通过反射发现 `GameplayAttributeData` 字段，Managed Stripping Level 高时
+   字段可能被裁掉。两种方式任选：
+   - 给你的 AttributeSet 类打 `[UnityEngine.Scripting.Preserve]`；
+   - 或在 `Assets/link.xml` 中保留本程序集与你的属性集：
+
+     ```xml
+     <linker>
+       <assembly fullname="GasNet" preserve="all"/>
+       <assembly fullname="Assembly-CSharp">
+         <namespace fullname="YourGame" preserve="all"/>
+       </assembly>
+     </linker>
+     ```
+
+   若字段真被裁掉，`GameplayAttributeRegistry` 会打一条明确的警告日志（只打一次）。
+3. 每帧驱动：在 `MonoBehaviour.Update()` 里调用 `asc.Tick(Time.deltaTime)`；时间源注入引擎时钟：
+
+   ```csharp
+   asc.TimeSource = new EngineTimeSource(); // 实现 ITimeSource，返回 Time.time
+   GasNetLog.OnWarn = msg => Debug.LogWarning(msg);
+   ```
+
+### Godot 4 (C#)
+
+1. 在游戏工程 `.csproj` 里 `<ProjectReference Include="...\src\GasNet\GasNet.csproj"/>` 直接引用，
+   netstandard2.1 资产在 Godot 的 .NET 运行时（6/8）下原生可用；或同样以 DLL 方式放入项目。
+2. 在 `_Process(double delta)` 中调用 `asc.Tick((float)delta)`；时间源可用
+   `Time.GetTicksMsec() / 1000f` 实现 `ITimeSource`。
+3. Cue 表现：继承 `GameplayCueNotify_Static/_Actor`，在事件回调里操作 `Node`/粒子/音频即可。
+
+> 注意：`GasNet.Sample`、`GasNet.Demo`、`GasNet.Tests` 仍是 `net10.0`——它们是宿主侧内容/工具，
+> 不随核心库进引擎。

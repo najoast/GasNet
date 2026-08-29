@@ -78,6 +78,7 @@ public readonly struct GameplayAttribute : IEquatable<GameplayAttribute>
 public static class GameplayAttributeRegistry
 {
     private static readonly ConcurrentDictionary<Type, Dictionary<string, FieldInfo>> Cache = new();
+    private static readonly ConcurrentDictionary<Type, byte> _emptyMapWarned = new();
 
     public static IReadOnlyList<GameplayAttribute> GetAttributes(Type attributeSetType)
     {
@@ -112,6 +113,16 @@ public static class GameplayAttributeRegistry
                     if (field.FieldType == typeof(GameplayAttributeData) && !map.ContainsKey(field.Name))
                         map[field.Name] = field;
                 }
+            }
+
+            if (map.Count == 0 && _emptyMapWarned.TryAdd(type, 0))
+            {
+                // Fine for a genuinely empty set; otherwise the fields were most likely removed
+                // by the AOT linker (Unity IL2CPP managed stripping) — see README "Unity / Godot 接入".
+                GasNetLog.Warn(
+                    $"AttributeSet '{type.FullName}' exposed no GameplayAttributeData fields via reflection. " +
+                    "Either it defines no attributes, or the fields were stripped by the AOT linker (Unity IL2CPP " +
+                    "managed stripping). Preserve them with [Preserve]/link.xml or register the fields explicitly.");
             }
             return map;
         });
