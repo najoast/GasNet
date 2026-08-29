@@ -178,16 +178,18 @@ dotnet run --project tools/GasNet.Editor    # → http://localhost:5177
 
 - **档案**：反射加载游戏侧托管 DLL（GodotDemo 构建产物即可），自动发现 AttributeSet 与
   ExecCalc/MMC/CAR/能力类型，填出下拉框；仓库内运行会自动预填 GodotDemo 的路径。
+  程序集以内存副本加载，不锁游戏 DLL（游戏可随时重新编译，档案过期会在界面提示）；
   GasNet 系依赖强制回落到编辑器自身副本保证类型同一性；引用引擎类型（Godot Node 等）的
   类加载失败会被跳过。
 - **编辑**：效果的全部数据字段（时长/周期、修饰符与四种幅度、标签、三类标签需求、免疫、
-  堆叠、授予能力、ExecCalc/CAR）。
+  堆叠、授予能力、ExecCalc/CAR）；克隆效果、文档级撤销/重做、按名称过滤、标签/属性反查
+  （哪个效果在用）、标签输入补全与新标签软提醒、单效果只读 JSON 预览。
 - **校验**：每次修改都"写出→真加载器读回"往返，加载器报什么编辑器就显示什么——
-  游戏读不进的文件在编辑器里就存不出去（不会显示）。编辑器自身不序列化 JSON，
+  游戏读不进的文件不会无声存出去（保存前确认）。编辑器自身不序列化 JSON，
   读和写只走 GasNet.Data，格式变更只影响一处。
 
 当前边界：不支持编辑 GameplayTagQuery、不能创建属性集/逻辑类（那些永远是代码）、
-无撤销/重做与运行时连接。
+无与运行中游戏的连接。详见 [tools/GasNet.Editor/README.md](./tools/GasNet.Editor/README.md)。
 
 ## 接入 Unity / Godot
 

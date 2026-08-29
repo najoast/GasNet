@@ -2,6 +2,7 @@
 @inject EditorProfile Profile
 @inject CatalogDocument Document
 @inject EditorLogBuffer LogBuffer
+@inject IJSRuntime JS
 
 <div class="header">
     <h1>GasNet Editor <span class="subtitle">GameplayEffect 目录编辑器 · 读写只经 GasNet.Data</span></h1>
@@ -18,6 +19,10 @@
             @if (Profile.HasProfile)
             {
                 <p class="ok">✔ @Profile.AttributeSetCount 个属性集 · @Profile.CalculableCount 个可引用类型</p>
+                @if (Profile.IsStale())
+                {
+                    <p class="stale">⚠ 档案文件已变更（游戏重新编译过）——下拉框与校验依据可能过期，请重新加载。</p>
+                }
             }
             else
             {
@@ -32,25 +37,32 @@
         <section>
             <h2>2 · 目录文件</h2>
             <input class="wide mono" @bind="Document.Path" @bind:event="oninput" placeholder="目录 JSON 路径" />
-            <button @onclick="OpenCatalog" disabled="@(Document.Path.Length == 0 || !Profile.HasProfile)">打开</button>
-            <button @onclick="SaveCatalog" disabled="@(Document.Path.Length == 0 || Document.Effects.Count == 0)">保存</button>
-            @if (Document.Dirty)
-            {
-                <span class="dirty">● 未保存</span>
-            }
+            <div class="row">
+                <button @onclick="OpenCatalog" disabled="@(Document.Path.Length == 0 || !Profile.HasProfile)">打开</button>
+                <button @onclick="SaveCatalog" disabled="@(Document.Path.Length == 0 || Document.Effects.Count == 0)">保存</button>
+                <button @onclick="Undo" disabled="@(!Document.CanUndo)" title="撤销上一次编辑">↩ 撤销</button>
+                <button @onclick="Redo" disabled="@(!Document.CanRedo)" title="重做">↪ 重做</button>
+                @if (Document.Dirty)
+                {
+                    <span class="dirty">● 未保存</span>
+                }
+            </div>
+
+            <input class="wide" @bind="effectFilter" @bind:event="oninput" placeholder="按名称过滤效果…" />
 
             <ul class="effects">
-                @for (var i = 0; i < Document.Effects.Count; i++)
+                @foreach (var index in VisibleIndexes)
                 {
-                    var index = i;
-                    <li class="@(Document.SelectedIndex == index ? "selected" : "")"
-                        @onclick="() => Select(index)">@Document.Effects[index].Name</li>
+                    var i = index;
+                    <li class="@(Document.SelectedIndex == i ? "selected" : "")"
+                        @onclick="() => Select(i)">@Document.Effects[i].Name</li>
                 }
             </ul>
             <div class="row">
                 <input @bind="newEffectName" placeholder="新效果名" />
-                <button @onclick="AddEffect">＋</button>
-                <button class="danger" @onclick="DeleteSelected" disabled="@(Document.Selected is null)">✕</button>
+                <button @onclick="AddEffect" title="新建效果">＋</button>
+                <button @onclick="CloneSelected" disabled="@(Document.Selected is null)" title="克隆选中效果（插到后面）">⧉</button>
+                <button class="danger" @onclick="DeleteSelected" disabled="@(Document.Selected is null)" title="删除选中效果">✕</button>
             </div>
         </section>
 
@@ -60,6 +72,25 @@
                 @foreach (var (name, depth) in tagTree)
                 {
                     <div style="padding-left:@(depth * 14)px">@name</div>
+                }
+            </div>
+        </section>
+
+        <section>
+            <h2>引用查询</h2>
+            <div class="row">
+                <select @bind="referenceMode">
+                    <option value="tag">按标签</option>
+                    <option value="attribute">按属性</option>
+                </select>
+                <span class="hint">@(referenceMode == "tag" ? "层级匹配：查 Stun 会命中 Stun.Blocked" : "格式 SetTypeName.FieldName")</span>
+            </div>
+            <input class="wide mono" @bind="referenceQuery" @bind:event="oninput"
+                   placeholder="@(referenceMode == "tag" ? "如 Data.Damage" : "如 BattleAttributeSet.Health")" />
+            <div class="refresults mono">
+                @foreach (var (effect, field) in ReferenceHits)
+                {
+                    <div @onclick="() => SelectByName(effect)" title="@field">@effect <span class="hint">@field</span></div>
                 }
             </div>
         </section>
@@ -84,6 +115,11 @@
                     }
                 </ul>
             }
+            @if (_newTags.Count > 0)
+            {
+                <p class="stale">⚠ 新标签（原文件里没有，确认不是拼写错误；GAS 会静默注册任何新标签）：
+                    <span class="mono">@string.Join("、", _newTags)</span></p>
+            }
         </section>
 
         @if (Document.Selected is { } entry)
@@ -105,10 +141,23 @@
     </main>
 </div>
 
+@* 标签输入的自动补全源（HTML datalist，零 JS） *@
+<datalist id="gas-tags">
+    @foreach (var name in _allTagNames)
+    {
+        <option value="@name"></option>
+    }
+</datalist>
+
 @code {
     private string assemblyPath = "";
     private string newEffectName = "";
+    private string effectFilter = "";
+    private string referenceMode = "tag";
+    private string referenceQuery = "";
     private List<string> _errors = [];
+    private List<string> _newTags = [];
+    private List<string> _allTagNames = [];
     private List<(string Label, int Depth)> tagTree = [];
 
     protected override void OnInitialized()
@@ -136,11 +185,14 @@
         {
             Profile.Log.Insert(0, $"加载失败：{exception.Message}");
         }
-        Refresh();
+        Refresh(trackUndo: false);
     }
 
-    private void OpenCatalog()
+    private async Task OpenCatalog()
     {
+        if (Document.Dirty && !await JS.InvokeAsync<bool>("confirm",
+                "当前目录有未保存的修改，打开新文件将丢弃它们。继续？"))
+            return;
         try
         {
             Document.Open(Document.Path, Profile.BuildOptions());
@@ -148,13 +200,17 @@
         catch (Exception exception)
         {
             _errors = [exception.Message];
+            _newTags = [];
             return;
         }
-        Refresh();
+        Refresh(trackUndo: false);
     }
 
-    private void SaveCatalog()
+    private async Task SaveCatalog()
     {
+        if (_errors.Count > 0 && !await JS.InvokeAsync<bool>("confirm",
+                $"往返校验仍有 {_errors.Count} 个错误，游戏可能无法加载该文件。确定仍然保存？"))
+            return;
         try
         {
             Document.Save(Document.Path);
@@ -164,7 +220,19 @@
             _errors = [exception.Message];
             return;
         }
-        Refresh();
+        Refresh(trackUndo: false);
+    }
+
+    private void Undo()
+    {
+        Document.Undo();
+        Refresh(trackUndo: false);
+    }
+
+    private void Redo()
+    {
+        Document.Redo();
+        Refresh(trackUndo: false);
     }
 
     private void AddEffect()
@@ -173,6 +241,12 @@
             return;
         Document.AddNew(newEffectName.Trim());
         newEffectName = "";
+        Refresh();
+    }
+
+    private void CloneSelected()
+    {
+        Document.CloneSelected();
         Refresh();
     }
 
@@ -187,12 +261,80 @@
         Document.SelectedIndex = index;
     }
 
-    /// <summary>任何编辑都汇到这里：标脏 + 全量往返校验 + 标签树更新。</summary>
-    private void Refresh()
+    private void SelectByName(string name)
     {
+        var index = Document.Effects.FindIndex(entry => entry.Name == name);
+        if (index >= 0)
+            Document.SelectedIndex = index;
+    }
+
+    private IEnumerable<int> VisibleIndexes
+    {
+        get
+        {
+            for (var i = 0; i < Document.Effects.Count; i++)
+                if (effectFilter.Length == 0 ||
+                    Document.Effects[i].Name.Contains(effectFilter, StringComparison.OrdinalIgnoreCase))
+                    yield return i;
+        }
+    }
+
+    private IEnumerable<(string Effect, string Field)> ReferenceHits
+    {
+        get
+        {
+            var query = referenceQuery.Trim();
+            if (query.Length == 0 || !Profile.HasProfile)
+                yield break;
+            if (referenceMode == "tag")
+            {
+                foreach (var hit in CatalogSearch.FindTagReferences(Document.Effects, query))
+                    yield return (hit.Effect, hit.Field + (hit.Tag.Name == query ? "" : $" · {hit.Tag.Name}"));
+            }
+            else
+            {
+                foreach (var hit in CatalogSearch.FindAttributeReferences(Document.Effects, query))
+                    yield return (hit.Effect, hit.Field);
+            }
+        }
+    }
+
+    /// <summary>任何编辑都汇到这里：标脏 + （可选）撤销快照 + 全量往返校验 + 标签树更新。
+    /// 打开/保存/撤销等非编辑操作用 trackUndo=false，避免记入无操作的撤销步。</summary>
+    private void Refresh() => Refresh(trackUndo: true);
+
+    private void Refresh(bool trackUndo)
+    {
+        if (trackUndo)
+            Document.CommitSnapshot();
         Document.MarkDirty();
         _errors = Profile.HasProfile ? Document.Validate(Profile.BuildOptions()) : ["未加载游戏程序集——无法往返校验。"];
         tagTree = ComputeTagTree();
+        _allTagNames = [.. GameplayTagsManager.Default.GetAllTags().Select(t => t.Name).OrderBy(n => n, StringComparer.Ordinal)];
+        _newTags = [.. CatalogSearch.AllTagOccurrences(Document.Effects)
+            .Select(o => o.Tag.Name)
+            .Where(n => !Document.FileTagNames.Contains(n))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(n => n, StringComparer.Ordinal)];
+        SyncDirtyFlag();
+    }
+
+    /// <summary>把脏标记同步给页面的 beforeunload 守卫（见 App.razor 的内联脚本）。编辑事件里
+    /// 同步调用，互操作异步执行、失败静默（预渲染阶段没有电路）。</summary>
+    private void SyncDirtyFlag() => _ = SyncDirtyFlagAsync();
+
+    private async Task SyncDirtyFlagAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("gasDirty.set", Document.Dirty);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     private List<(string, int)> ComputeTagTree()

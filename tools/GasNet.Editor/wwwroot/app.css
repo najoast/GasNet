@@ -8,6 +8,7 @@
     --accent: #2563eb;
     --good: #0f8a4d;
     --bad: #c62828;
+    --warn: #b45309;
     --field: #ffffff;
     --btn: #eef2f7;
     --btn-hover: #e2e8f0;
@@ -24,6 +25,7 @@
     --accent: #5b8def;
     --good: #46b876;
     --bad: #ef6b60;
+    --warn: #e8a33d;
     --field: #161a21;
     --btn: #262d38;
     --btn-hover: #333c4a;
@@ -58,6 +60,24 @@ h3 { font-size: 12px; margin: 14px 0 6px; color: var(--muted); border-bottom: 1p
 .ok { color: var(--good); }
 .dirty { color: var(--bad); margin-left: 6px; }
 .rename-warn { color: var(--bad); font-size: 12px; margin: 0 0 6px; }
+.stale { color: var(--warn); font-size: 12px; margin: 6px 0 0; }
+
+.refresults { max-height: 180px; overflow: auto; font-size: 12px; }
+.refresults div { cursor: pointer; padding: 2px 4px; border-radius: 3px; }
+.refresults div:hover { background: var(--hover); }
+
+.jsonpreview { margin-top: 10px; }
+.jsonpreview summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+.jsonpreview pre {
+    max-height: 260px;
+    overflow: auto;
+    margin: 6px 0 0;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-size: 11px;
+}
 
 .layout {
     display: flex;

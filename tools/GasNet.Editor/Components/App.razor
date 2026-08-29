@@ -25,6 +25,16 @@
                     return theme;
                 },
             };
+            // 未保存守卫：Blazor 在有未保存修改时调用 gasDirty.set(true)。
+            window.gasDirty = {
+                set: function (dirty) { document.body.dataset.dirty = dirty ? "1" : "0"; },
+            };
+            window.addEventListener("beforeunload", function (e) {
+                if (document.body.dataset.dirty === "1") {
+                    e.preventDefault();
+                    e.returnValue = "";
+                }
+            });
         })();
     </script>
     <HeadOutlet @rendermode="InteractiveServer" />

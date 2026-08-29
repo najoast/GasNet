@@ -41,11 +41,15 @@
     @foreach (var mod in Def.Modifiers)
     {
         var modifier = mod;
+        var attributeKey = $"{modifier.Attribute.AttributeSetType.Name}.{modifier.Attribute.Name}";
         <div class="card" @key="modifier">
             <div class="row">
                 <label>属性
-                    <select value="@($"{modifier.Attribute.AttributeSetType.Name}.{modifier.Attribute.Name}")"
-                            @onchange="e => SetAttribute(modifier, e.Value?.ToString())">
+                    <select value="@attributeKey" @onchange="e => SetAttribute(modifier, e.Value?.ToString())">
+                        @if (!Profile.Attributes.Any(a => a.Key == attributeKey))
+                        {
+                            <option value="@attributeKey">@attributeKey（未加载）</option>
+                        }
                         @foreach (var attr in Profile.Attributes)
                         {
                             <option value="@attr.Key">@attr.Key</option>
@@ -66,9 +70,9 @@
             <MagnitudeEditor Value="modifier.Magnitude" Profile="Profile"
                              Replace="m => { modifier.Magnitude = m; Changed(); }" Changed="Changed" />
             <div class="row">
-                <label>sourceTags <input value="@Ui.ToText(modifier.SourceTags)"
+                <label>sourceTags <input list="gas-tags" value="@Ui.ToText(modifier.SourceTags)"
                     @onchange="e => SetTags(e, v => modifier.SourceTags = v)" placeholder="空格分隔，可留空" /></label>
-                <label>targetTags <input value="@Ui.ToText(modifier.TargetTags)"
+                <label>targetTags <input list="gas-tags" value="@Ui.ToText(modifier.TargetTags)"
                     @onchange="e => SetTags(e, v => modifier.TargetTags = v)" placeholder="空格分隔，可留空" /></label>
             </div>
         </div>
@@ -119,36 +123,36 @@
 
     <h3>标签</h3>
     <div class="row">
-        <label>assetTags <input value="@Ui.ToText(Def.AssetTags)" @onchange="e => SetTags(e, v => Def.AssetTags = v)" /></label>
-        <label>grantedTags <input value="@Ui.ToText(Def.GrantedTags)" @onchange="e => SetTags(e, v => Def.GrantedTags = v)" /></label>
-        <label>cueTags <input value="@Ui.ToText(Def.GameplayCueTags)" @onchange="e => SetTags(e, v => Def.GameplayCueTags = v)" /></label>
+        <label>assetTags <input list="gas-tags" value="@Ui.ToText(Def.AssetTags)" @onchange="e => SetTags(e, v => Def.AssetTags = v)" /></label>
+        <label>grantedTags <input list="gas-tags" value="@Ui.ToText(Def.GrantedTags)" @onchange="e => SetTags(e, v => Def.GrantedTags = v)" /></label>
+        <label>cueTags <input list="gas-tags" value="@Ui.ToText(Def.GameplayCueTags)" @onchange="e => SetTags(e, v => Def.GameplayCueTags = v)" /></label>
     </div>
 
     <h3>标签需求（require = 必须全部有 · ignore = 一个都不能有）</h3>
     <div class="row">
-        <label>应用·require <input value="@Ui.ToText(Def.ApplicationTagRequirements.RequiredTags)"
+        <label>应用·require <input list="gas-tags" value="@Ui.ToText(Def.ApplicationTagRequirements.RequiredTags)"
             @onchange="e => FillTags(e, Def.ApplicationTagRequirements.RequiredTags)" /></label>
-        <label>应用·ignore <input value="@Ui.ToText(Def.ApplicationTagRequirements.IgnoredTags)"
+        <label>应用·ignore <input list="gas-tags" value="@Ui.ToText(Def.ApplicationTagRequirements.IgnoredTags)"
             @onchange="e => FillTags(e, Def.ApplicationTagRequirements.IgnoredTags)" /></label>
     </div>
     <div class="row">
-        <label>目标·require <input value="@Ui.ToText(Def.TargetTagRequirements.RequiredTags)"
+        <label>目标·require <input list="gas-tags" value="@Ui.ToText(Def.TargetTagRequirements.RequiredTags)"
             @onchange="e => FillTags(e, Def.TargetTagRequirements.RequiredTags)" /></label>
-        <label>目标·ignore <input value="@Ui.ToText(Def.TargetTagRequirements.IgnoredTags)"
+        <label>目标·ignore <input list="gas-tags" value="@Ui.ToText(Def.TargetTagRequirements.IgnoredTags)"
             @onchange="e => FillTags(e, Def.TargetTagRequirements.IgnoredTags)" /></label>
     </div>
     <div class="row">
-        <label>持续中·require <input value="@Ui.ToText(Def.OngoingTagRequirements.RequiredTags)"
+        <label>持续中·require <input list="gas-tags" value="@Ui.ToText(Def.OngoingTagRequirements.RequiredTags)"
             @onchange="e => FillTags(e, Def.OngoingTagRequirements.RequiredTags)" /></label>
-        <label>持续中·ignore <input value="@Ui.ToText(Def.OngoingTagRequirements.IgnoredTags)"
+        <label>持续中·ignore <input list="gas-tags" value="@Ui.ToText(Def.OngoingTagRequirements.IgnoredTags)"
             @onchange="e => FillTags(e, Def.OngoingTagRequirements.IgnoredTags)" /></label>
     </div>
 
     <h3>驱散与免疫</h3>
     <div class="row">
-        <label>移除带标签的GE <input value="@Ui.ToText(Def.RemoveGameplayEffectsWithTags)"
+        <label>移除带标签的GE <input list="gas-tags" value="@Ui.ToText(Def.RemoveGameplayEffectsWithTags)"
             @onchange="e => SetTags(e, v => Def.RemoveGameplayEffectsWithTags = v)" /></label>
-        <label>免疫来源标签 <input value="@Ui.ToText(Def.GrantedApplicationImmunityTags)"
+        <label>免疫来源标签 <input list="gas-tags" value="@Ui.ToText(Def.GrantedApplicationImmunityTags)"
             @onchange="e => SetTags(e, v => Def.GrantedApplicationImmunityTags = v)" /></label>
     </div>
 
@@ -227,6 +231,11 @@
         </div>
     }
     <button @onclick="AddGrantedAbility" disabled="@(Profile.Abilities.Count == 0)">＋ 授予能力</button>
+
+    <details class="jsonpreview">
+        <summary>JSON 预览（保存时的写出形态，只读）</summary>
+        <pre class="mono">@PreviewJson()</pre>
+    </details>
 </div>
 
 @code {
@@ -235,6 +244,10 @@
     [Parameter, EditorRequired] public Action Changed { get; set; } = default!;
 
     private GameplayEffectDefinition Def => Entry.Def;
+
+    /// <summary>单个效果的写出形态。仍由 GasNetDataWriter 序列化——编辑器自身不写 JSON，预览与落盘同源。</summary>
+    private string PreviewJson() => GasNetDataWriter.WriteCatalog(
+        [new KeyValuePair<string, GameplayEffectDefinition>(Entry.Name, Entry.Def)]);
 
     // ---- 标量 setter ----
 

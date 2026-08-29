@@ -36,6 +36,26 @@ public sealed class EditorProfile
     public int AttributeSetCount => _attributeByKey.Values.Select(a => a.AttributeSetType).Distinct().Count();
     public int CalculableCount => Executions.Count + Magnitudes.Count + Requirements.Count + Abilities.Count;
 
+    private DateTime _loadedWriteTimeUtc;
+    private long _loadedLength;
+
+    /// <summary>加载后游戏 DLL 被重新编译过（时间戳/长度变化或文件消失）。
+    /// 内存副本加载不会锁文件，所以陈旧是可能的——校验横幅据此提示重新加载档案。</summary>
+    public bool IsStale()
+    {
+        if (LoadedAssembly is null)
+            return false;
+        try
+        {
+            var info = new FileInfo(LoadedAssembly);
+            return !info.Exists || info.LastWriteTimeUtc != _loadedWriteTimeUtc || info.Length != _loadedLength;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
+
     public void LoadAssembly(string path)
     {
         var fullPath = Path.GetFullPath(path);
@@ -68,7 +88,11 @@ public sealed class EditorProfile
         {
             // 内存副本加载：LoadFromAssemblyPath 会让 ALC 持有句柄直到编辑器退出，
             // 游戏重新编译时 MSBuild 报 MSB3027（文件被编辑器锁定）。MemoryStream 交给 GC。
-            assembly = context.LoadFromStream(new MemoryStream(File.ReadAllBytes(fullPath)));
+            var bytes = File.ReadAllBytes(fullPath);
+            var stamp = new FileInfo(fullPath);
+            _loadedWriteTimeUtc = stamp.LastWriteTimeUtc;
+            _loadedLength = stamp.Length;
+            assembly = context.LoadFromStream(new MemoryStream(bytes));
         }
         catch (BadImageFormatException e)
         {
