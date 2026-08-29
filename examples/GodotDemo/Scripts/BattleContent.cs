@@ -1,4 +1,6 @@
 using GasNet;
+using GasNet.Data;
+using Godot;
 
 namespace GodotDemo;
 
@@ -43,22 +45,26 @@ public class BattleAttributeSet : AttributeSet
 	}
 }
 
-/// <summary>GE 定义：纯数据原型，对应 UE 的蓝图 GE 子类。</summary>
-public static class BattleGE
+/// <summary>
+/// 数据驱动的 GE 定义（Data/BattleGE.json），对应 UE 的 GE 资产——数值策划改 JSON 即可调参。
+/// 属性引用格式 "SetTypeName.AttributeName"，标签字符串按核心库的运行时注册模型自动注册；
+/// GE 内引用的代码片段（ExecCalc/MMC 等）需在 Load 时经 GasNetDataLoadOptions 注册。
+/// </summary>
+public static class BattleData
 {
-	/// <summary>初始化属性：Epic 推荐用 Instant GE（文档 §4.4.4）。</summary>
-	public static GameplayEffectDefinition MakeInitStats(float maxHealth, float attackPower) =>
-		new GameplayEffectDefinition()
-			.With(policy: GameplayEffectDurationType.Instant)
-			.AddModifier(BattleAttributeSet.MaxHealthAttr, GameplayModOp.Override, new ScalableFloatMagnitude(maxHealth))
-			.AddModifier(BattleAttributeSet.HealthAttr, GameplayModOp.Override, new ScalableFloatMagnitude(maxHealth))
-			.AddModifier(BattleAttributeSet.AttackPowerAttr, GameplayModOp.Override, new ScalableFloatMagnitude(attackPower));
+	public static GameplayEffectDefinition InitStatsHero = null!;
+	public static GameplayEffectDefinition InitStatsEnemy = null!;
+	public static GameplayEffectDefinition Damage = null!;
 
-	/// <summary>瞬发伤害：数值由 SetByCaller 在运行时携带；成功命中自动触发 Executed Cue。</summary>
-	public static readonly GameplayEffectDefinition Damage = new GameplayEffectDefinition()
-		.With(policy: GameplayEffectDurationType.Instant)
-		.WithCueTags(DemoTags.CueHit)
-		.AddModifier(BattleAttributeSet.HealthAttr, GameplayModOp.Add, new SetByCallerMagnitude(DemoTags.DataDamage));
+	public static void Load()
+	{
+		var options = new GasNetDataLoadOptions().RegisterAttributeSet<BattleAttributeSet>();
+		var catalog = GasNetDataLoader.LoadCatalogFile(
+			ProjectSettings.GlobalizePath("res://Data/BattleGE.json"), options);
+		InitStatsHero = catalog.Get("GE_InitStats_Hero");
+		InitStatsEnemy = catalog.Get("GE_InitStats_Enemy");
+		Damage = catalog.Get("GE_Damage");
+	}
 }
 
 /// <summary>
@@ -76,7 +82,7 @@ public sealed class AttackAbility : GameplayAbility
 			return;
 		}
 
-		var spec = MakeAbilityEffectSpec(BattleGE.Damage);
+		var spec = MakeAbilityEffectSpec(BattleData.Damage);
 		// Damage 是对 Health 的 Add 修饰符：Add 直接改 BaseValue，伤害必须传负数（正数 = 治疗）
 		spec.SetSetByCallerMagnitude(DemoTags.DataDamage,
 			-OwnerASC!.GetNumericAttribute(BattleAttributeSet.AttackPowerAttr));

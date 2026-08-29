@@ -6,14 +6,15 @@ GameplayEffect 生命周期、堆叠/免疫/持续标签、Ability 激活与提�
 
 ```
 GasNet.sln
-├─ src/GasNet           核心库（无外部依赖，net10.0）
+├─ src/GasNet           核心库（无外部依赖，netstandard2.1 + net10.0）
+├─ src/GasNet.Data      数据驱动层：JSON 目录 → GameplayEffectDefinition（独立程序集，保持核心零依赖）
 ├─ src/GasNet.Sample    示例内容：属性集、GE 定义、能力、Cue（对应文档 §2 的示例工程）
 ├─ src/GasNet.Demo      可运行的战斗脚本演示（控制台 transcript）
-└─ tests/GasNet.Tests   74 个 xUnit 测试，把文档语义锁进断言
+└─ tests/GasNet.Tests   96 个 xUnit 测试，把文档语义锁进断言
 ```
 
 ```bash
-dotnet test GasNet.sln          # 74/74 通过
+dotnet test GasNet.sln          # 96/96 通过
 dotnet run --project src/GasNet.Demo
 ```
 
@@ -82,7 +83,7 @@ ExecCalc 可 `MarkGameplayCuesHandledManually()` 抑制。
 
 - **无网络/预测层**：本地权威单线程模型。`NetExecutionPolicy` 保留为说明性枚举；无 Replication、PredictionKey、FastArray、RPC batching。
 - **时间由宿主驱动**：ASC 不自带心跳，需周期调用 `ASC.Tick(dt)`；测试/回放注入 `ManualTimeSource`。
-- **数据驱动层省略**：无 .ini 标签表（运行时注册）、无 DataTable 曲线（`ScalableFloatMagnitude.ValuePerLevel` 代替）、无蓝图（用流式构建器/C# 子类）。
+- **数据驱动为"JSON 目录 + 宿主注册"模型**（见下方"数据驱动"一节）：无 .ini/.udt 资产管线；标签仍是运行时注册（JSON 里的标签名首次出现时自动注册，不校验预先存在的标签表）；无曲线（`ScalableFloatMagnitude.ValuePerLevel` 代替）；无蓝图（逻辑类 ExecCalc/MMC/CAR/Ability 以"类型名 + 宿主注册"从数据中引用）。
 - **AbilityTask 简化**：文档 §4.7 的任务系统用 `OnAbilityTick` 钩子 + C# 事件代替（`WaitTargetData`/蒙辰类任务不在范围内）。
 - **堆叠修饰符不随层数翻倍**：与引擎一致——堆叠只增加 `StackCount` 并驱动刷新/过期策略；"每层 +X"请用 SetByCaller 或层变化事件（示例中的护甲栈以"存在即 +10、受击掉层"表达）。
 - **乘/除为引擎默认求和**（非文档 §4.5.4.1 的引擎补丁版逐项相乘），并额外提供 `OnlyStrongestSlow_AllOtherMods` 限定器实现 §5.7 的"只取最强减速"。
@@ -114,6 +115,55 @@ ExecCalc 伤害）、Sprint（Infinite GE + 每秒体力消耗、输入释放结
 Passive Armor Stacks（4 秒 1 层、上限 4、受击掉层）、CounterAttack（Event.Hit 触发），
 以及眩晕、减速、叠加护甲、周期治疗等 GE 和静态/Actor 两类 Cue。
 
+## 数据驱动（src/GasNet.Data）
+
+对应 UE 的"GE 蓝图资产"：GameplayEffectDefinition 以 JSON 目录形式存盘，运行时由
+`GasNetDataLoader.LoadCatalog(File.ReadAllText(path), options)` 加载成普通定义对象。
+核心库保持零依赖——全部 JSON 管线在这个独立程序集里（netstandard2.1 + net10.0；
+ns2.1 目标引用 System.Text.Json 包，net10.0 用内置实现）。
+
+```jsonc
+{
+  "effects": {
+    "GE_Damage": {
+      "durationPolicy": "Instant",                    // Instant | HasDuration | Infinite
+      "duration": 5, "period": 1,                     // HasDuration/Infinite + period → 周期 GE
+      "modifiers": [ {
+        "attribute": "BattleAttributeSet.Health",     // "SetTypeName.AttributeName"
+        "op": "Add",                                  // Add | Multiply | Divide | Override
+        "magnitude": { "type": "setByCaller", "tag": "Data.Damage" }
+        // 另有 scalableFloat(value,valuePerLevel)、attributeBased(attribute,source,snapshot,
+        //   useBaseValue,sourceTagFilter,targetTagFilter)、customCalculation(calculation)；
+        //   公共 UE 公式字段：coefficient(1)、preMultiplyAdditive(0)、postMultiplyAdditive(1)
+      } ],
+      "assetTags": [], "grantedTags": [], "cueTags": ["GameplayCue.Combat.Hit"],
+      "applicationTagRequirements": { "require": [], "ignore": [] },
+      "targetTagRequirements": {}, "ongoingTagRequirements": {},
+      "removeGameplayEffectsWithTags": [], "grantedApplicationImmunityTags": [],
+      "stacking": { "type": "AggregateByTarget", "limit": 4, "durationRefresh": "NeverRefresh",
+                    "periodReset": "NeverReset", "expiry": "ClearEntireStack" },
+      "grantedAbilities": [ { "ability": "BurnAbility", "inputId": 0,
+                              "removalPolicy": "CancelAbilityImmediately" } ],
+      "executions": [ { "calculation": "DamageExecution" } ],
+      "customApplicationRequirements": [ { "requirement": "CanAffordMana" } ]
+    }
+  }
+}
+```
+
+解析约定：
+
+- **属性**以 `"SetTypeName.AttributeName"` 引用，宿主用 `options.RegisterAttributeSet<T>()`
+  注册属性集类型，加载器经 `GameplayAttributeRegistry` 校验字段存在。
+- **标签**直接写字符串，按核心库的运行时注册模型自动注册（见"有意偏差"）。
+- **代码片段**（ExecCalc/MMC/CAR/授予能力）以类型名引用，宿主用 `options.RegisterType<T>()`
+  注册——不做程序集扫描，天然兼容 IL2CPP/裁剪。ExecCalc/MMC/CAR 需要公共无参构造。
+- **未知字段一律报错**（`GasNetDataException`，消息带效果名与字段路径）——数据格式的拼写错误必须大声失败。
+- 尚未支持从 JSON 表达：`GameplayTagQuery`（`GrantedApplicationImmunityQuery` / TagRequirements.TagQuery）。
+
+可运行示例：[examples/GodotDemo](./examples/GodotDemo) 的 `Data/BattleGE.json`——把血量/攻击力改进 JSON
+即可调参，无需重编译。
+
 ## 接入 Unity / Godot
 
 核心库多目标发布：**`netstandard2.1`**（Unity 2019.4+ / Unity 6 的 Mono 与 IL2CPP、Godot 4 C# 均可直接加载）
@@ -139,7 +189,9 @@ Passive Armor Stacks（4 秒 1 层、上限 4、受击掉层）、CounterAttack�
      ```
 
    若字段真被裁掉，`GameplayAttributeRegistry` 会打一条明确的警告日志（只打一次）。
-3. 每帧驱动：在 `MonoBehaviour.Update()` 里调用 `asc.Tick(Time.deltaTime)`；时间源注入引擎时钟：
+3. 若使用数据驱动层，还需把 `GasNet.Data.dll`（及其 `System.Text.Json` 依赖）一并放入
+   `Assets/Plugins/`，并在 link.xml 中保留 `GasNet.Data` 与 System.Text.Json 相关程序集。
+4. 每帧驱动：在 `MonoBehaviour.Update()` 里调用 `asc.Tick(Time.deltaTime)`；时间源注入引擎时钟：
 
    ```csharp
    asc.TimeSource = new EngineTimeSource(); // 实现 ITimeSource，返回 Time.time
@@ -154,6 +206,7 @@ Passive Armor Stacks（4 秒 1 层、上限 4、受击掉层）、CounterAttack�
    `Time.GetTicksMsec() / 1000f` 实现 `ITimeSource`。
 3. Cue 表现：继承 `GameplayCueNotify_Static/_Actor`，在事件回调里操作 `Node`/粒子/音频即可。
 
-**可运行的示例**：[examples/GodotDemo](./examples/GodotDemo) —— 一个完整的 Godot 4.4 工程，
-演示全部四个接缝（时间注入、Tick 驱动、节点持有 ASC、Cue 表现适配），空格攻击 + 敌人自动反击。
+**可运行的示例**：[examples/GodotDemo](./examples/GodotDemo) —— 一个完整的 Godot 工程，
+演示全部四个接缝（时间注入、Tick 驱动、节点持有 ASC、Cue 表现适配），空格攻击 + 敌人自动反击；
+GE 定义由 `src/GasNet.Data` 从 `Data/BattleGE.json` 加载（数据驱动示例）。
 `GasNet.Sample`、`GasNet.Demo`、`GasNet.Tests` 仍是 `net10.0`（宿主侧内容/工具，不随核心库进引擎）。

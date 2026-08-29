@@ -18,11 +18,18 @@ restore 时自动选用其 **netstandard2.1** 产物（Godot 的 net8.0 消费�
 |---|---|---|
 | 时间 | `GasNetBridge.cs` `GodotTimeSource` | `ITimeSource` 包一层 `Time.GetTicksMsec()`，所有 ASC 共享引擎时钟 |
 | 宿主 | `GasNetBridge.cs` `GasActor` | Node 持有 ASC；`_Ready` 里 `InitAbilityActorInfo`，`_Process` 里 `ASC.Tick(dt)` |
-| 内容 | `BattleContent.cs` | AttributeSet / GE 定义 / Ability 全是普通 C# 类，零引擎依赖 |
+| 内容 | `BattleContent.cs` | AttributeSet / Ability 全是普通 C# 类，零引擎依赖 |
 | 表现 | `GasNetBridge.cs` `HitCueNotify` | 继承 `GameplayCueNotify_Static`，把 `GameplayCue.Combat.Hit` 事件翻译成闪白 + 日志 |
 
 `Scripts/Main.cs` 负责场景组装：注册 Cue、把属性变化接到日志 Label、把空格键映射到
 `ASC.AbilityLocalInputPressed(1)`。
+
+## 数据驱动的 GE
+
+三个 GE 定义不在代码里，而在 [`Data/BattleGE.json`](Data/BattleGE.json)，由 `src/GasNet.Data`
+在 `BattleData.Load()` 时加载（`GasNetDataLoader`）。属性以 `"SetTypeName.AttributeName"` 引用、
+标签按运行时注册模型自动注册；改 JSON 里的数值（血量/攻击力）即可调参，无需重编译 C# 代码。
+字段格式见根 README 的"数据驱动"一节。
 
 ## 说明
 

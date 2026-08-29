@@ -11,6 +11,7 @@
   <!-- Godot 的 net8.0 工程会自动选用 GasNet 的 netstandard2.1 产物（多目标里最近的兼容项）。 -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\GasNet\GasNet.csproj" />
+    <ProjectReference Include="..\..\src\GasNet.Data\GasNet.Data.csproj" />
   </ItemGroup>
 
 </Project>

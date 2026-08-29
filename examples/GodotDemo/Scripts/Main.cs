@@ -18,6 +18,7 @@ public sealed partial class Main : Node2D
 	{
 		_log = GetNode<Label>("Log");
 		GasNetLog.OnWarn = GD.PushWarning; // 核心库日志 → Godot 输出面板
+		BattleData.Load(); // GE 定义来自 Data/BattleGE.json（数据驱动层示例）
 
 		AbilitySystemGlobals.Get().GameplayCueManager.RegisterNotify(new HitCueNotify());
 
@@ -76,7 +77,7 @@ public sealed partial class Hero : GasActor
 		Name = "Hero";
 		Position = new Vector2(250, 340);
 		ASC.AddSet<BattleAttributeSet>();
-		ASC.ApplyGameplayEffectToSelf(BattleGE.MakeInitStats(maxHealth: 100, attackPower: 14));
+		ASC.ApplyGameplayEffectToSelf(BattleData.InitStatsHero);
 		ASC.GiveAbility(new GameplayAbilitySpec(new AttackAbility(), level: 1, inputID: 1));
 	}
 
@@ -96,7 +97,7 @@ public sealed partial class Enemy : GasActor
 		Name = "Enemy";
 		Position = new Vector2(850, 340);
 		ASC.AddSet<BattleAttributeSet>();
-		ASC.ApplyGameplayEffectToSelf(BattleGE.MakeInitStats(maxHealth: 60, attackPower: 7));
+		ASC.ApplyGameplayEffectToSelf(BattleData.InitStatsEnemy);
 		ASC.GiveAbility(new GameplayAbilitySpec(new AttackAbility(), level: 1));
 	}
 
