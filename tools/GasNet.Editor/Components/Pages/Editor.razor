@@ -1,0 +1,233 @@
+@page "/"
+@inject EditorProfile Profile
+@inject CatalogDocument Document
+@inject EditorLogBuffer LogBuffer
+
+<h1>GasNet Editor <span class="subtitle">GameplayEffect 目录编辑器 · 读写只经 GasNet.Data</span></h1>
+
+<div class="layout">
+    <aside>
+        <section>
+            <h2>1 · 游戏程序集（档案）</h2>
+            <input class="wide mono" @bind="assemblyPath" @bind:event="oninput"
+                   placeholder="游戏托管 DLL 路径，如 ...\GodotDemo.dll" />
+            <button @onclick="LoadProfile">加载</button>
+            @if (Profile.HasProfile)
+            {
+                <p class="ok">✔ @Profile.AttributeSetCount 个属性集 · @Profile.CalculableCount 个可引用类型</p>
+            }
+            else
+            {
+                <p class="hint">反射加载游戏 DLL，自动发现属性集与 ExecCalc/MMC/CAR/能力类型（下拉框数据源 + 校验依据）。</p>
+            }
+            @foreach (var line in Profile.Log)
+            {
+                <p class="hint">@line</p>
+            }
+        </section>
+
+        <section>
+            <h2>2 · 目录文件</h2>
+            <input class="wide mono" @bind="Document.Path" @bind:event="oninput" placeholder="目录 JSON 路径" />
+            <button @onclick="OpenCatalog" disabled="@(Document.Path.Length == 0 || !Profile.HasProfile)">打开</button>
+            <button @onclick="SaveCatalog" disabled="@(Document.Path.Length == 0 || Document.Effects.Count == 0)">保存</button>
+            @if (Document.Dirty)
+            {
+                <span class="dirty">● 未保存</span>
+            }
+
+            <ul class="effects">
+                @for (var i = 0; i < Document.Effects.Count; i++)
+                {
+                    var index = i;
+                    <li class="@(Document.SelectedIndex == index ? "selected" : "")"
+                        @onclick="() => Select(index)">@Document.Effects[index].Name</li>
+                }
+            </ul>
+            <div class="row">
+                <input @bind="newEffectName" placeholder="新效果名" />
+                <button @onclick="AddEffect">＋</button>
+                <button class="danger" @onclick="DeleteSelected" disabled="@(Document.Selected is null)">✕</button>
+            </div>
+        </section>
+
+        <section>
+            <h2>标签树（已注册）</h2>
+            <div class="tagtree mono">
+                @foreach (var (name, depth) in tagTree)
+                {
+                    <div style="padding-left:@(depth * 14)px">@name</div>
+                }
+            </div>
+        </section>
+    </aside>
+
+    <main>
+        <section class="validation @(_errors.Count > 0 ? "bad" : "good")">
+            @if (!Profile.HasProfile)
+            {
+                <span class="hint">未加载游戏程序集——无法往返校验，先完成第 1 步。</span>
+            }
+            else if (_errors.Count == 0)
+            {
+                <span>✔ 目录往返校验通过（@Document.Effects.Count 个效果）</span>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var error in _errors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            }
+        </section>
+
+        @if (Document.Selected is { } entry)
+        {
+            <EffectEditor Entry="entry" Profile="Profile" Changed="Refresh" />
+        }
+        else
+        {
+            <p class="hint">左侧选择或新建一个效果。</p>
+        }
+
+        <section class="log mono">
+            <h2>日志（GasNetLog）</h2>
+            @foreach (var line in LogBuffer.Snapshot())
+            {
+                <div>@line</div>
+            }
+        </section>
+    </main>
+</div>
+
+@code {
+    private string assemblyPath = "";
+    private string newEffectName = "";
+    private List<string> _errors = [];
+    private List<(string Label, int Depth)> tagTree = [];
+
+    protected override void OnInitialized()
+    {
+        // 便利项：在本仓库内运行时，自动预填 GodotDemo 的构建产物与目录文件路径。
+        var repoRoot = FindRepoRoot();
+        if (repoRoot is null)
+            return;
+        var demoDll = System.IO.Path.Combine(repoRoot, "examples", "GodotDemo", ".godot", "mono", "temp", "bin", "Debug", "GodotDemo.dll");
+        if (System.IO.File.Exists(demoDll))
+        {
+            assemblyPath = demoDll;
+            Document.Path = System.IO.Path.Combine(repoRoot, "examples", "GodotDemo", "Data", "BattleGE.json");
+        }
+    }
+
+    private void LoadProfile()
+    {
+        try
+        {
+            Profile.LoadAssembly(assemblyPath);
+            tagTree = ComputeTagTree();
+        }
+        catch (Exception exception)
+        {
+            Profile.Log.Insert(0, $"加载失败：{exception.Message}");
+        }
+        Refresh();
+    }
+
+    private void OpenCatalog()
+    {
+        try
+        {
+            Document.Open(Document.Path, Profile.BuildOptions());
+        }
+        catch (Exception exception)
+        {
+            _errors = [exception.Message];
+            return;
+        }
+        Refresh();
+    }
+
+    private void SaveCatalog()
+    {
+        try
+        {
+            Document.Save(Document.Path);
+        }
+        catch (Exception exception)
+        {
+            _errors = [exception.Message];
+            return;
+        }
+        Refresh();
+    }
+
+    private void AddEffect()
+    {
+        if (string.IsNullOrWhiteSpace(newEffectName))
+            return;
+        Document.AddNew(newEffectName.Trim());
+        newEffectName = "";
+        Refresh();
+    }
+
+    private void DeleteSelected()
+    {
+        Document.RemoveAt(Document.SelectedIndex);
+        Refresh();
+    }
+
+    private void Select(int index)
+    {
+        Document.SelectedIndex = index;
+    }
+
+    /// <summary>任何编辑都汇到这里：标脏 + 全量往返校验 + 标签树更新。</summary>
+    private void Refresh()
+    {
+        Document.MarkDirty();
+        _errors = Profile.HasProfile ? Document.Validate(Profile.BuildOptions()) : ["未加载游戏程序集——无法往返校验。"];
+        tagTree = ComputeTagTree();
+    }
+
+    private List<(string, int)> ComputeTagTree()
+    {
+        var result = new List<(string, int)>();
+        var root = new TagNode("");
+        foreach (var tag in GameplayTagsManager.Default.GetAllTags())
+        {
+            var node = root;
+            foreach (var segment in tag.Name.Split('.'))
+                node = node.Child(segment);
+        }
+        Walk(root, 0);
+        return result;
+
+        void Walk(TagNode node, int depth)
+        {
+            foreach (var child in node.Children.Values.OrderBy(c => c.Segment, StringComparer.Ordinal))
+            {
+                result.Add((child.Segment, depth));
+                Walk(child, depth + 1);
+            }
+        }
+    }
+
+    private static string? FindRepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !System.IO.File.Exists(System.IO.Path.Combine(directory.FullName, "GasNet.sln")))
+            directory = directory.Parent;
+        return directory?.FullName;
+    }
+
+    private sealed class TagNode(string segment)
+    {
+        public string Segment { get; } = segment;
+        public Dictionary<string, TagNode> Children { get; } = new(StringComparer.Ordinal);
+        public TagNode Child(string name) =>
+            Children.TryGetValue(name, out var node) ? node : Children[name] = new TagNode(name);
+    }
+}

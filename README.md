@@ -7,15 +7,17 @@ GameplayEffect 生命周期、堆叠/免疫/持续标签、Ability 激活与提�
 ```
 GasNet.sln
 ├─ src/GasNet           核心库（无外部依赖，netstandard2.1 + net10.0）
-├─ src/GasNet.Data      数据驱动层：JSON 目录 → GameplayEffectDefinition（独立程序集，保持核心零依赖）
+├─ src/GasNet.Data      数据驱动层：JSON 目录 ↔ GameplayEffectDefinition（独立程序集，保持核心零依赖）
 ├─ src/GasNet.Sample    示例内容：属性集、GE 定义、能力、Cue（对应文档 §2 的示例工程）
 ├─ src/GasNet.Demo      可运行的战斗脚本演示（控制台 transcript）
-└─ tests/GasNet.Tests   96 个 xUnit 测试，把文档语义锁进断言
+├─ tools/GasNet.Editor  本地 Web 编辑器（Blazor Server）：可视化编辑 GE 目录 JSON
+└─ tests/GasNet.Tests   102 个 xUnit 测试，把文档语义锁进断言
 ```
 
 ```bash
-dotnet test GasNet.sln          # 96/96 通过
-dotnet run --project src/GasNet.Demo
+dotnet test GasNet.sln                          # 102/102 通过
+dotnet run --project src/GasNet.Demo            # 10 幕战斗 transcript
+dotnet run --project tools/GasNet.Editor        # 启动编辑器 → http://localhost:5177
 ```
 
 ## UE → GasNet 概念映射
@@ -120,7 +122,9 @@ Passive Armor Stacks（4 秒 1 层、上限 4、受击掉层）、CounterAttack�
 对应 UE 的"GE 蓝图资产"：GameplayEffectDefinition 以 JSON 目录形式存盘，运行时由
 `GasNetDataLoader.LoadCatalog(File.ReadAllText(path), options)` 加载成普通定义对象。
 核心库保持零依赖——全部 JSON 管线在这个独立程序集里（netstandard2.1 + net10.0；
-ns2.1 目标引用 System.Text.Json 包，net10.0 用内置实现）。
+ns2.1 目标引用 System.Text.Json 包，net10.0 用内置实现）。读写对称：
+`GasNetDataWriter.WriteCatalog(...)` 把（加载或编辑过的）定义写回同一种格式——
+等于默认值的字段一律省略（干净的 diff），写入顺序即传入顺序。
 
 ```jsonc
 {
@@ -163,6 +167,27 @@ ns2.1 目标引用 System.Text.Json 包，net10.0 用内置实现）。
 
 可运行示例：[examples/GodotDemo](./examples/GodotDemo) 的 `Data/BattleGE.json`——把血量/攻击力改进 JSON
 即可调参，无需重编译。
+
+## 编辑器（tools/GasNet.Editor）
+
+本地 Web 工具（Blazor Server，纯 .NET 无 JS 工具链），编辑上面的 JSON 目录：
+
+```bash
+dotnet run --project tools/GasNet.Editor    # → http://localhost:5177
+```
+
+- **档案**：反射加载游戏侧托管 DLL（GodotDemo 构建产物即可），自动发现 AttributeSet 与
+  ExecCalc/MMC/CAR/能力类型，填出下拉框；仓库内运行会自动预填 GodotDemo 的路径。
+  GasNet 系依赖强制回落到编辑器自身副本保证类型同一性；引用引擎类型（Godot Node 等）的
+  类加载失败会被跳过。
+- **编辑**：效果的全部数据字段（时长/周期、修饰符与四种幅度、标签、三类标签需求、免疫、
+  堆叠、授予能力、ExecCalc/CAR）。
+- **校验**：每次修改都"写出→真加载器读回"往返，加载器报什么编辑器就显示什么——
+  游戏读不进的文件在编辑器里就存不出去（不会显示）。编辑器自身不序列化 JSON，
+  读和写只走 GasNet.Data，格式变更只影响一处。
+
+当前边界：不支持编辑 GameplayTagQuery、不能创建属性集/逻辑类（那些永远是代码）、
+无撤销/重做与运行时连接。
 
 ## 接入 Unity / Godot
 

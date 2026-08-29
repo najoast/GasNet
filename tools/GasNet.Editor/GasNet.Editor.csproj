@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>GasNet.Editor</RootNamespace>
+    <Description>Local web editor for GasNet data catalogs (GameplayEffect definitions). Reads and writes JSON exclusively through GasNet.Data.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GasNet\GasNet.csproj" />
+    <ProjectReference Include="..\..\src\GasNet.Data\GasNet.Data.csproj" />
+  </ItemGroup>
+
+</Project>

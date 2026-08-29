@@ -1,0 +1,356 @@
+@* 单个 GameplayEffectDefinition 的全字段表单；任何修改经 Changed 回调触发上层往返校验。 *@
+
+<div class="effect">
+    <div class="row header">
+        <h2>效果</h2>
+        <input class="name mono" value="@Entry.Name" @onchange="Rename" title="效果名（JSON 键）" />
+        <span class="hint">@Def.DurationPolicy @(Def.IsPeriodic ? $"· 每 {Def.Period}s" : "")</span>
+    </div>
+
+    <h3>基本</h3>
+    <div class="row">
+        <label>时长策略
+            <select value="@Def.DurationPolicy.ToString()" @onchange="e => SetEnum<GameplayEffectDurationType>(e, (d, v) => d.DurationPolicy = v)">
+                @foreach (var name in Enum.GetNames<GameplayEffectDurationType>())
+                {
+                    <option value="@name">@name</option>
+                }
+            </select>
+        </label>
+        @if (Def.DurationPolicy == GameplayEffectDurationType.HasDuration)
+        {
+            <label>时长(s) <input class="num" type="number" step="any" value="@Def.Duration"
+                @onchange="e => SetF(e, (d, v) => d.Duration = v)" /></label>
+        }
+        <label>周期(s)
+            <input class="num" type="number" step="any" value="@Def.Period"
+                @onchange="e => SetF(e, (d, v) => d.Period = v)" title=">0 时每个周期按 Instant 执行一次" />
+        </label>
+        @if (Def.IsInstant && Def.Period > 0)
+        {
+            <span class="hint">Instant 不支持周期；切到 HasDuration / Infinite 才生效。</span>
+        }
+    </div>
+
+    <h3>修饰符</h3>
+    @foreach (var mod in Def.Modifiers)
+    {
+        var modifier = mod;
+        <div class="card" @key="modifier">
+            <div class="row">
+                <label>属性
+                    <select value="@($"{modifier.Attribute.AttributeSetType.Name}.{modifier.Attribute.Name}")"
+                            @onchange="e => SetAttribute(modifier, e.Value?.ToString())">
+                        @foreach (var attr in Profile.Attributes)
+                        {
+                            <option value="@attr.Key">@attr.Key</option>
+                        }
+                    </select>
+                </label>
+                <label>操作
+                    <select value="@modifier.ModifierOp.ToString()"
+                            @onchange="@(e => { modifier.ModifierOp = Ui.Enum<GameplayModOp>(e.Value?.ToString()); Changed(); })">
+                        @foreach (var name in Enum.GetNames<GameplayModOp>())
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    </select>
+                </label>
+                <button class="danger" @onclick="() => RemoveModifier(modifier)">✕ 移除</button>
+            </div>
+            <MagnitudeEditor Value="modifier.Magnitude" Profile="Profile"
+                             Replace="m => { modifier.Magnitude = m; Changed(); }" Changed="Changed" />
+            <div class="row">
+                <label>sourceTags <input value="@Ui.ToText(modifier.SourceTags)"
+                    @onchange="e => SetTags(e, v => modifier.SourceTags = v)" placeholder="空格分隔，可留空" /></label>
+                <label>targetTags <input value="@Ui.ToText(modifier.TargetTags)"
+                    @onchange="e => SetTags(e, v => modifier.TargetTags = v)" placeholder="空格分隔，可留空" /></label>
+            </div>
+        </div>
+    }
+    <button @onclick="AddModifier">＋ 修饰符</button>
+
+    <h3>执行计算 / 自定义应用条件</h3>
+    <div class="row">
+        <span class="hint">执行（ExecCalc）：</span>
+        @foreach (var ex in Def.Executions)
+        {
+            var execution = ex;
+            <select value="@execution.GetType().Name" @key="execution"
+                    @onchange="e => ReplaceExecution(execution, e.Value?.ToString())">
+                @if (!Profile.Executions.Any(t => t.Name == execution.GetType().Name))
+                {
+                    <option value="@execution.GetType().Name">@execution.GetType().Name（未加载）</option>
+                }
+                @foreach (var type in Profile.Executions)
+                {
+                    <option value="@type.Name">@type.Name</option>
+                }
+            </select>
+            <button class="danger" @onclick="() => RemoveFrom(Def.Executions, execution)">✕</button>
+        }
+        <button @onclick="AddExecution" disabled="@(Profile.Executions.Count == 0)">＋</button>
+    </div>
+    <div class="row">
+        <span class="hint">应用条件（CAR）：</span>
+        @foreach (var car in Def.CustomApplicationRequirements)
+        {
+            var requirement = car;
+            <select value="@requirement.GetType().Name" @key="requirement"
+                    @onchange="e => ReplaceRequirement(requirement, e.Value?.ToString())">
+                @if (!Profile.Requirements.Any(t => t.Name == requirement.GetType().Name))
+                {
+                    <option value="@requirement.GetType().Name">@requirement.GetType().Name（未加载）</option>
+                }
+                @foreach (var type in Profile.Requirements)
+                {
+                    <option value="@type.Name">@type.Name</option>
+                }
+            </select>
+            <button class="danger" @onclick="() => RemoveFrom(Def.CustomApplicationRequirements, requirement)">✕</button>
+        }
+        <button @onclick="AddRequirement" disabled="@(Profile.Requirements.Count == 0)">＋</button>
+    </div>
+
+    <h3>标签</h3>
+    <div class="row">
+        <label>assetTags <input value="@Ui.ToText(Def.AssetTags)" @onchange="e => SetTags(e, v => Def.AssetTags = v)" /></label>
+        <label>grantedTags <input value="@Ui.ToText(Def.GrantedTags)" @onchange="e => SetTags(e, v => Def.GrantedTags = v)" /></label>
+        <label>cueTags <input value="@Ui.ToText(Def.GameplayCueTags)" @onchange="e => SetTags(e, v => Def.GameplayCueTags = v)" /></label>
+    </div>
+
+    <h3>标签需求（require = 必须全部有 · ignore = 一个都不能有）</h3>
+    <div class="row">
+        <label>应用·require <input value="@Ui.ToText(Def.ApplicationTagRequirements.RequiredTags)"
+            @onchange="e => FillTags(e, Def.ApplicationTagRequirements.RequiredTags)" /></label>
+        <label>应用·ignore <input value="@Ui.ToText(Def.ApplicationTagRequirements.IgnoredTags)"
+            @onchange="e => FillTags(e, Def.ApplicationTagRequirements.IgnoredTags)" /></label>
+    </div>
+    <div class="row">
+        <label>目标·require <input value="@Ui.ToText(Def.TargetTagRequirements.RequiredTags)"
+            @onchange="e => FillTags(e, Def.TargetTagRequirements.RequiredTags)" /></label>
+        <label>目标·ignore <input value="@Ui.ToText(Def.TargetTagRequirements.IgnoredTags)"
+            @onchange="e => FillTags(e, Def.TargetTagRequirements.IgnoredTags)" /></label>
+    </div>
+    <div class="row">
+        <label>持续中·require <input value="@Ui.ToText(Def.OngoingTagRequirements.RequiredTags)"
+            @onchange="e => FillTags(e, Def.OngoingTagRequirements.RequiredTags)" /></label>
+        <label>持续中·ignore <input value="@Ui.ToText(Def.OngoingTagRequirements.IgnoredTags)"
+            @onchange="e => FillTags(e, Def.OngoingTagRequirements.IgnoredTags)" /></label>
+    </div>
+
+    <h3>驱散与免疫</h3>
+    <div class="row">
+        <label>移除带标签的GE <input value="@Ui.ToText(Def.RemoveGameplayEffectsWithTags)"
+            @onchange="e => SetTags(e, v => Def.RemoveGameplayEffectsWithTags = v)" /></label>
+        <label>免疫来源标签 <input value="@Ui.ToText(Def.GrantedApplicationImmunityTags)"
+            @onchange="e => SetTags(e, v => Def.GrantedApplicationImmunityTags = v)" /></label>
+    </div>
+
+    <h3>堆叠</h3>
+    <div class="row">
+        <label>类型
+            <select value="@Def.StackingType.ToString()" @onchange="e => SetEnum<GameplayEffectStackingType>(e, (d, v) => d.StackingType = v)">
+                @foreach (var name in Enum.GetNames<GameplayEffectStackingType>())
+                {
+                    <option value="@name">@name</option>
+                }
+            </select>
+        </label>
+        @if (Def.StackingType != GameplayEffectStackingType.DoNotStack)
+        {
+            <label>上限 <input class="num" type="number" value="@Def.StackLimitCount"
+                @onchange="e => SetI(e, (d, v) => d.StackLimitCount = v)" /></label>
+            <label>时长刷新
+                <select value="@Def.StackDurationRefreshPolicy.ToString()" @onchange="e => SetEnum<GameplayEffectStackingDurationPolicy>(e, (d, v) => d.StackDurationRefreshPolicy = v)">
+                    @foreach (var name in Enum.GetNames<GameplayEffectStackingDurationPolicy>())
+                    {
+                        <option value="@name">@name</option>
+                    }
+                </select>
+            </label>
+            <label>周期重置
+                <select value="@Def.StackPeriodResetPolicy.ToString()" @onchange="e => SetEnum<GameplayEffectStackingPeriodPolicy>(e, (d, v) => d.StackPeriodResetPolicy = v)">
+                    @foreach (var name in Enum.GetNames<GameplayEffectStackingPeriodPolicy>())
+                    {
+                        <option value="@name">@name</option>
+                    }
+                </select>
+            </label>
+            <label>过期策略
+                <select value="@Def.StackExpiryPolicy.ToString()" @onchange="e => SetEnum<GameplayEffectStackingExpiryPolicy>(e, (d, v) => d.StackExpiryPolicy = v)">
+                    @foreach (var name in Enum.GetNames<GameplayEffectStackingExpiryPolicy>())
+                    {
+                        <option value="@name">@name</option>
+                    }
+                </select>
+            </label>
+        }
+    </div>
+
+    <h3>授予能力</h3>
+    @foreach (var granted in Def.GrantedAbilities)
+    {
+        var ability = granted;
+        <div class="card row" @key="ability">
+            <label>能力
+                <select value="@ability.AbilityType.Name" @onchange="e => ReplaceAbilityType(ability, e.Value?.ToString())">
+                    @if (!Profile.Abilities.Any(t => t.Name == ability.AbilityType.Name))
+                    {
+                        <option value="@ability.AbilityType.Name">@ability.AbilityType.Name（未加载）</option>
+                    }
+                    @foreach (var type in Profile.Abilities)
+                    {
+                        <option value="@type.Name">@type.Name</option>
+                    }
+                </select>
+            </label>
+            <label>等级 <input class="num" type="number" step="any" value="@ability.Level"
+                @onchange="@(e => { ability.Level = Ui.F(e.Value?.ToString()); Changed(); })" /></label>
+            <label>InputID <input class="num" type="number" value="@ability.InputID"
+                @onchange="@(e => { ability.InputID = Ui.I(e.Value?.ToString()); Changed(); })" /></label>
+            <label>移除策略
+                <select value="@ability.RemovalPolicy.ToString()"
+                    @onchange="@(e => { ability.RemovalPolicy = Ui.Enum<GameplayEffectAbilityRemovalPolicy>(e.Value?.ToString()); Changed(); })">
+                    @foreach (var name in Enum.GetNames<GameplayEffectAbilityRemovalPolicy>())
+                    {
+                        <option value="@name">@name</option>
+                    }
+                </select>
+            </label>
+            <button class="danger" @onclick="() => RemoveFrom(Def.GrantedAbilities, ability)">✕</button>
+        </div>
+    }
+    <button @onclick="AddGrantedAbility" disabled="@(Profile.Abilities.Count == 0)">＋ 授予能力</button>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CatalogDocument.Entry Entry { get; set; } = default!;
+    [Parameter, EditorRequired] public EditorProfile Profile { get; set; } = default!;
+    [Parameter, EditorRequired] public Action Changed { get; set; } = default!;
+
+    private GameplayEffectDefinition Def => Entry.Def;
+
+    // ---- 标量 setter ----
+
+    private void SetF(ChangeEventArgs e, Action<GameplayEffectDefinition, float> apply) =>
+        ApplyAndNotify(d => apply(d, Ui.F(e.Value?.ToString())));
+
+    private void SetI(ChangeEventArgs e, Action<GameplayEffectDefinition, int> apply) =>
+        ApplyAndNotify(d => apply(d, Ui.I(e.Value?.ToString())));
+
+    private void SetEnum<T>(ChangeEventArgs e, Action<GameplayEffectDefinition, T> apply) where T : struct, Enum =>
+        ApplyAndNotify(d => apply(d, Ui.Enum<T>(e.Value?.ToString())));
+
+    private void SetTags(ChangeEventArgs e, Action<GameplayTagContainer> assign)
+    {
+        assign(Ui.ParseTags(e.Value?.ToString()) ?? new GameplayTagContainer());
+        Changed();
+    }
+
+    private void FillTags(ChangeEventArgs e, GameplayTagContainer target)
+    {
+        Ui.FillTags(target, e.Value?.ToString());
+        Changed();
+    }
+
+    private void ApplyAndNotify(Action<GameplayEffectDefinition> apply)
+    {
+        apply(Def);
+        Changed();
+    }
+
+    private void Rename(ChangeEventArgs e)
+    {
+        Entry.Name = (e.Value?.ToString() ?? "").Trim();
+        Changed();
+    }
+
+    // ---- 修饰符 ----
+
+    private void AddModifier()
+    {
+        if (Profile.Attributes.Count == 0)
+            return;
+        var first = Profile.Attributes[0];
+        Def.Modifiers.Add(new GameplayModifierInfo
+        {
+            Attribute = first.Attribute,
+            Magnitude = new ScalableFloatMagnitude(),
+        });
+        Changed();
+    }
+
+    private void RemoveModifier(GameplayModifierInfo modifier)
+    {
+        Def.Modifiers.Remove(modifier);
+        Changed();
+    }
+
+    private void SetAttribute(GameplayModifierInfo modifier, string? key)
+    {
+        if (Profile.FindAttribute(key) is { } attribute)
+        {
+            modifier.Attribute = attribute;
+            Changed();
+        }
+    }
+
+    // ---- 执行 / CAR / 授予能力 ----
+
+    private void AddExecution()
+    {
+        if (Profile.Executions.FirstOrDefault() is not { } type)
+            return;
+        ApplyAndNotify(_ => Def.Executions.Add((GameplayEffectExecutionCalculation)Activator.CreateInstance(type)!));
+    }
+
+    private void ReplaceExecution(GameplayEffectExecutionCalculation current, string? name)
+    {
+        if (Profile.Instantiate(name) is GameplayEffectExecutionCalculation replacement
+            && Def.Executions.IndexOf(current) is var index && index >= 0)
+        {
+            Def.Executions[index] = replacement;
+            Changed();
+        }
+    }
+
+    private void AddRequirement()
+    {
+        if (Profile.Requirements.FirstOrDefault() is not { } type)
+            return;
+        ApplyAndNotify(_ => Def.CustomApplicationRequirements.Add((GameplayEffectCustomApplicationRequirement)Activator.CreateInstance(type)!));
+    }
+
+    private void ReplaceRequirement(GameplayEffectCustomApplicationRequirement current, string? name)
+    {
+        if (Profile.Instantiate(name) is GameplayEffectCustomApplicationRequirement replacement
+            && Def.CustomApplicationRequirements.IndexOf(current) is var index && index >= 0)
+        {
+            Def.CustomApplicationRequirements[index] = replacement;
+            Changed();
+        }
+    }
+
+    private void AddGrantedAbility()
+    {
+        if (Profile.Abilities.FirstOrDefault() is not { } type)
+            return;
+        ApplyAndNotify(_ => Def.GrantedAbilities.Add(new GrantedAbilityEntry { AbilityType = type }));
+    }
+
+    private void ReplaceAbilityType(GrantedAbilityEntry entry, string? name)
+    {
+        if (Profile.FindType(name) is { } type)
+        {
+            entry.AbilityType = type;
+            Changed();
+        }
+    }
+
+    private void RemoveFrom<T>(List<T> list, T item)
+    {
+        list.Remove(item);
+        Changed();
+    }
+}

@@ -1,0 +1,128 @@
+@* magnitude 类型选择 + 参数编辑；类型切换经 Replace 换成新实例（不迁移旧参数，保持简单）。 *@
+
+<div class="row mag">
+    <label>幅度
+        <select value="@TypeText" @onchange="OnTypeChanged">
+            <option value="scalableFloat">scalableFloat</option>
+            <option value="attributeBased">attributeBased</option>
+            <option value="setByCaller">setByCaller</option>
+            <option value="customCalculation">customCalculation</option>
+        </select>
+    </label>
+
+    @if (Value is ScalableFloatMagnitude scalableFloat)
+    {
+        <label>值 <input class="num" type="number" step="any" value="@scalableFloat.Value"
+            @onchange="@(e => { scalableFloat.Value = Ui.F(e.Value?.ToString()); Changed(); })" /></label>
+        <label>每级 <input class="num" type="number" step="any" value="@scalableFloat.ValuePerLevel"
+            @onchange="@(e => { scalableFloat.ValuePerLevel = Ui.F(e.Value?.ToString()); Changed(); })" /></label>
+    }
+    else if (Value is AttributeBasedMagnitude based)
+    {
+        <label>来源属性
+            <select value="@($"{based.Capture.Attribute.AttributeSetType.Name}.{based.Capture.Attribute.Name}")"
+                    @onchange="e => SetCaptureAttribute(based, e.Value?.ToString())">
+                @foreach (var attr in Profile.Attributes)
+                {
+                    <option value="@attr.Key">@attr.Key</option>
+                }
+            </select>
+        </label>
+        <label>捕获自
+            <select value="@based.Capture.CaptureSource.ToString()"
+                    @onchange="@(e => { based.Capture = based.Capture with { CaptureSource = Ui.Enum<GameplayAttributeCaptureSource>(e.Value?.ToString()) }; Changed(); })">
+                @foreach (var name in Enum.GetNames<GameplayAttributeCaptureSource>())
+                {
+                    <option value="@name">@name</option>
+                }
+            </select>
+        </label>
+        <label><input type="checkbox" checked="@based.Capture.Snapshot"
+            @onchange="@(e => { based.Capture = based.Capture with { Snapshot = (bool)e.Value! }; Changed(); })" /> 快照</label>
+        <label><input type="checkbox" checked="@based.UseBaseValue"
+            @onchange="@(e => { based.UseBaseValue = (bool)e.Value!; Changed(); })" /> 用 Base</label>
+        <label>源过滤 <input value="@Ui.ToText(based.SourceTagFilter)"
+            @onchange="@(e => { based.SourceTagFilter = Ui.ParseTags(e.Value?.ToString()); Changed(); })" /></label>
+        <label>目标过滤 <input value="@Ui.ToText(based.TargetTagFilter)"
+            @onchange="@(e => { based.TargetTagFilter = Ui.ParseTags(e.Value?.ToString()); Changed(); })" /></label>
+    }
+    else if (Value is SetByCallerMagnitude setByCaller)
+    {
+        <label>DataTag <input class="mono" value="@setByCaller.DataTag.Name"
+            @onchange="@(e => { setByCaller.DataTag = Ui.ParseTag(e.Value?.ToString()); Changed(); })" /></label>
+    }
+    else if (Value is CustomCalculationMagnitude custom)
+    {
+        <label>计算类
+            <select value="@custom.Calculation.GetType().Name" @onchange="e => ReplaceCalculation(custom, e.Value?.ToString())">
+                @if (!Profile.Magnitudes.Any(t => t.Name == custom.Calculation.GetType().Name))
+                {
+                    <option value="@custom.Calculation.GetType().Name">@custom.Calculation.GetType().Name（未加载）</option>
+                }
+                @foreach (var type in Profile.Magnitudes)
+                {
+                    <option value="@type.Name">@type.Name</option>
+                }
+            </select>
+        </label>
+    }
+
+    <span class="hint">最终 = ((基值 × 系数) + 前置加) × 后置乘</span>
+    <label>系数 <input class="num" type="number" step="any" value="@Value.Coefficient"
+        @onchange="@(e => { Value.Coefficient = Ui.F(e.Value?.ToString()); Changed(); })" /></label>
+    <label>前置加 <input class="num" type="number" step="any" value="@Value.PreMultiplyAdditive"
+        @onchange="@(e => { Value.PreMultiplyAdditive = Ui.F(e.Value?.ToString()); Changed(); })" /></label>
+    <label>后置乘 <input class="num" type="number" step="any" value="@Value.PostMultiplyAdditive"
+        @onchange="@(e => { Value.PostMultiplyAdditive = Ui.F(e.Value?.ToString()); Changed(); })" /></label>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public GameplayEffectModifierMagnitude Value { get; set; } = default!;
+    [Parameter, EditorRequired] public EditorProfile Profile { get; set; } = default!;
+    [Parameter, EditorRequired] public Action Changed { get; set; } = default!;
+    [Parameter, EditorRequired] public Action<GameplayEffectModifierMagnitude> Replace { get; set; } = _ => { };
+
+    private string TypeText => Value switch
+    {
+        AttributeBasedMagnitude => "attributeBased",
+        SetByCallerMagnitude => "setByCaller",
+        CustomCalculationMagnitude => "customCalculation",
+        _ => "scalableFloat",
+    };
+
+    private void OnTypeChanged(ChangeEventArgs e)
+    {
+        GameplayEffectModifierMagnitude? next = (e.Value?.ToString()) switch
+        {
+            "attributeBased" when Profile.Attributes.FirstOrDefault() is { } first =>
+                new AttributeBasedMagnitude
+                {
+                    Capture = new AttributeCaptureDefinition(first.Attribute, GameplayAttributeCaptureSource.Target, Snapshot: false),
+                },
+            "setByCaller" => new SetByCallerMagnitude(),
+            "customCalculation" when Profile.Magnitudes.FirstOrDefault() is { } type =>
+                new CustomCalculationMagnitude { Calculation = (ModifierMagnitudeCalculation)Activator.CreateInstance(type)! },
+            _ => new ScalableFloatMagnitude(),
+        };
+        if (next is not null)
+            Replace(next);
+    }
+
+    private void SetCaptureAttribute(AttributeBasedMagnitude based, string? key)
+    {
+        if (Profile.FindAttribute(key) is { } attribute)
+        {
+            based.Capture = based.Capture with { Attribute = attribute };
+            Changed();
+        }
+    }
+
+    private void ReplaceCalculation(CustomCalculationMagnitude current, string? name)
+    {
+        if (Profile.Instantiate(name) is ModifierMagnitudeCalculation calculation)
+        {
+            current.Calculation = calculation;
+            Changed();
+        }
+    }
+}
