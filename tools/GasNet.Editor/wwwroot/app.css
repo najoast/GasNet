@@ -1,4 +1,5 @@
 :root {
+    color-scheme: light;
     --bg: #f6f7f9;
     --panel: #ffffff;
     --line: #d8dde4;
@@ -7,6 +8,26 @@
     --accent: #2563eb;
     --good: #0f8a4d;
     --bad: #c62828;
+    --field: #ffffff;
+    --btn: #eef2f7;
+    --btn-hover: #e2e8f0;
+    --hover: #eef2f7;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12151a;
+    --panel: #1d222c;
+    --line: #333b47;
+    --text: #d6dbe3;
+    --muted: #8b95a4;
+    --accent: #5b8def;
+    --good: #46b876;
+    --bad: #ef6b60;
+    --field: #161a21;
+    --btn: #262d38;
+    --btn-hover: #333c4a;
+    --hover: #262d38;
 }
 
 * { box-sizing: border-box; }
@@ -18,10 +39,19 @@ body {
     background: var(--bg);
 }
 
-h1 { font-size: 18px; margin: 14px 20px 10px; }
+h1 { font-size: 18px; margin: 0; }
 h1 .subtitle { font-size: 12px; font-weight: normal; color: var(--muted); margin-left: 8px; }
 h2 { font-size: 13px; margin: 0 0 8px; color: var(--accent); text-transform: none; }
 h3 { font-size: 12px; margin: 14px 0 6px; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+
+.header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 14px 20px 10px;
+}
+
+.theme-toggle { margin: 0; flex: none; }
 
 .mono { font-family: Consolas, "Cascadia Mono", monospace; }
 .hint { color: var(--muted); font-size: 12px; }
@@ -57,7 +87,7 @@ input, select, button {
     padding: 3px 6px;
     border: 1px solid var(--line);
     border-radius: 4px;
-    background: #fff;
+    background: var(--field);
     color: var(--text);
 }
 
@@ -65,8 +95,8 @@ input.wide { width: 100%; margin-bottom: 6px; }
 input.name { width: 240px; font-weight: bold; }
 input.num { width: 90px; }
 
-button { cursor: pointer; background: #eef2f7; margin: 2px 4px 2px 0; }
-button:hover:not(:disabled) { background: #e2e8f0; }
+button { cursor: pointer; background: var(--btn); margin: 2px 4px 2px 0; }
+button:hover:not(:disabled) { background: var(--btn-hover); }
 button:disabled { opacity: 0.45; cursor: default; }
 button.danger { color: var(--bad); }
 
@@ -91,7 +121,7 @@ label { display: inline-flex; align-items: center; gap: 5px; }
     border-radius: 4px;
 }
 .effects li { padding: 3px 8px; cursor: pointer; }
-.effects li:hover { background: #eef2f7; }
+.effects li:hover { background: var(--hover); }
 .effects li.selected { background: var(--accent); color: #fff; }
 
 .tagtree {

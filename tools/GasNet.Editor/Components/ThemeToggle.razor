@@ -1,0 +1,21 @@
+@* 夜间模式开关：主题由 <html data-theme> 驱动（初始化见 App.razor 内联脚本），localStorage 记忆、缺省跟随系统。 *@
+
+<button class="theme-toggle" title="切换夜间/日间模式" @onclick="Toggle">@(_dark is true ? "☀️ 日间" : "🌙 夜间")</button>
+
+@code {
+    private bool? _dark;
+
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // SSR 阶段读不到 localStorage，信号接通后同步一次按钮文案。
+        if (!firstRender)
+            return;
+        _dark = await JS.InvokeAsync<bool>("gasTheme.isDark");
+        StateHasChanged();
+    }
+
+    private async Task Toggle() =>
+        _dark = await JS.InvokeAsync<string>("gasTheme.toggle") == "dark";
+}

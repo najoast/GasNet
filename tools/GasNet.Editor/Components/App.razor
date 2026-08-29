@@ -7,6 +7,26 @@
     <title>GasNet Editor</title>
     <base href="/" />
     <link rel="stylesheet" href="app.css" />
+    <script>
+        // 夜间模式：必须在首帧绘制前把 data-theme 挂到 <html>（localStorage 记忆，缺省跟随系统），
+        // 并暴露 gasTheme.isDark/toggle 给 Blazor 互操作。
+        (function () {
+            var KEY = "gasnet.theme";
+            var theme = localStorage.getItem(KEY);
+            if (theme !== "dark" && theme !== "light")
+                theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            document.documentElement.dataset.theme = theme;
+            window.gasTheme = {
+                isDark: function () { return document.documentElement.dataset.theme === "dark"; },
+                toggle: function () {
+                    theme = theme === "dark" ? "light" : "dark";
+                    document.documentElement.dataset.theme = theme;
+                    localStorage.setItem(KEY, theme);
+                    return theme;
+                },
+            };
+        })();
+    </script>
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
