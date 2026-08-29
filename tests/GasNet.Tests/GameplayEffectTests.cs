@@ -191,6 +191,26 @@ public class GameplayEffectTests
         Assert.Single(world.Target.ActiveGameplayEffects.All); // the purge GE itself remains
     }
 
+    [Fact]
+    public void Instant_GE_Also_Processes_RemoveGameplayEffectsWithTags()
+    {
+        // Engine behavior: the removal pass runs on EVERY successful application, including
+        // Instant ones (the "dispel potion" pattern). Regression: it used to be skipped for Instant.
+        var world = NewWorld();
+        var fire = T.Tag("Effect.Fire");
+
+        var oldGE = T.DurationGE(TestAttributeSet.HealthAttr, GameplayModOp.Add, 1f, 100f);
+        oldGE.AssetTags.AddTag(fire);
+        world.Target.ApplyGameplayEffectToSelf(oldGE);
+
+        var instantPurge = T.InstantGE(TestAttributeSet.ManaAttr, GameplayModOp.Add, 1f);
+        instantPurge.RemoveGameplayEffectsWithTags.AddTag(fire);
+        world.Target.ApplyGameplayEffectToSelf(instantPurge);
+
+        Assert.Equal(0, world.Target.ActiveGameplayEffects.All.Count(age => age.Spec.GetAllAssetTags().HasTag(fire)));
+        Assert.Empty(world.Target.ActiveGameplayEffects.All); // instant GEs never enter the active list
+    }
+
     // ---------------- Stacking (doc §4.5.5) ----------------
 
     [Fact]

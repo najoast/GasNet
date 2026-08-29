@@ -114,6 +114,9 @@ public sealed class ActiveGameplayEffectsContainer
         if (spec.Def.IsInstant)
         {
             ExecuteActiveEffectsFrom(spec, isPeriodicTick: false);
+            // The engine processes RemoveGameplayEffectsWithTags on every successful application,
+            // Instant included (the "dispel potion" pattern): execute first, then remove.
+            RunRemoveGameplayEffectsWithTags(spec);
             return null;
         }
 
