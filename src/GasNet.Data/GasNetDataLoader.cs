@@ -38,7 +38,8 @@ namespace GasNet.Data;
 ///
 /// <para>Tag names are auto-registered (the library's runtime tag model). Attribute references are
 /// "SetTypeName.AttributeName"; execution/MMM/CAR/ability references are names registered on
-/// <see cref="GasNetDataLoadOptions"/>. Unknown fields are rejected — typos must be loud.</para>
+/// <see cref="GasNetDataLoadOptions"/>. Unknown fields and duplicate effect names are rejected —
+/// typos must be loud.</para>
 /// </summary>
 public static class GasNetDataLoader
 {
@@ -72,6 +73,12 @@ public static class GasNetDataLoader
             var result = new Dictionary<string, GameplayEffectDefinition>(StringComparer.Ordinal);
             foreach (var effect in effects.EnumerateObject())
             {
+                // JSON 语法允许对象键重复（JsonDocument 逐个枚举）；索引器赋值会静默后者覆盖前者，
+                // 必须大声报错——与"未知字段一律报错"同一立场。
+                if (result.ContainsKey(effect.Name))
+                    throw new GasNetDataException(
+                        $"Duplicate effect name '{effect.Name}' in the catalog. " +
+                        "JSON objects must not repeat keys; the last occurrence would silently win.");
                 if (effect.Value.ValueKind != JsonValueKind.Object)
                     throw new GasNetDataException($"Effect '{effect.Name}': expected an object.");
                 result[effect.Name] = ParseEffect(effect.Name, effect.Value, options);

@@ -6,6 +6,11 @@
         <input class="name mono" value="@Entry.Name" @onchange="Rename" title="效果名（JSON 键）" />
         <span class="hint">@Def.DurationPolicy @(Def.IsPeriodic ? $"· 每 {Def.Period}s" : "")</span>
     </div>
+    @if (Entry.SavedName is { } savedName && savedName.Length > 0 && savedName != Entry.Name)
+    {
+        <p class="rename-warn">⚠ 已重命名 '@savedName' → '@Entry.Name'：保存只更新目录内的键，目录外的旧引用
+            （游戏代码里的 catalog.Get("@savedName") 等）不会自动更新。</p>
+    }
 
     <h3>基本</h3>
     <div class="row">

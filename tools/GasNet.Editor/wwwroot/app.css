@@ -57,6 +57,7 @@ h3 { font-size: 12px; margin: 14px 0 6px; color: var(--muted); border-bottom: 1p
 .hint { color: var(--muted); font-size: 12px; }
 .ok { color: var(--good); }
 .dirty { color: var(--bad); margin-left: 6px; }
+.rename-warn { color: var(--bad); font-size: 12px; margin: 0 0 6px; }
 
 .layout {
     display: flex;

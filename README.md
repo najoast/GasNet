@@ -162,7 +162,7 @@ ns2.1 目标引用 System.Text.Json 包，net10.0 用内置实现）。读写对
 - **标签**直接写字符串，按核心库的运行时注册模型自动注册（见"有意偏差"）。
 - **代码片段**（ExecCalc/MMC/CAR/授予能力）以类型名引用，宿主用 `options.RegisterType<T>()`
   注册——不做程序集扫描，天然兼容 IL2CPP/裁剪。ExecCalc/MMC/CAR 需要公共无参构造。
-- **未知字段一律报错**（`GasNetDataException`，消息带效果名与字段路径）——数据格式的拼写错误必须大声失败。
+- **未知字段一律报错**（`GasNetDataException`，消息带效果名与字段路径）——数据格式的拼写错误必须大声失败；重复的效果名同理（JSON 对象键重复会静默后者覆盖前者）。
 - 尚未支持从 JSON 表达：`GameplayTagQuery`（`GrantedApplicationImmunityQuery` / TagRequirements.TagQuery）。
 
 可运行示例：[examples/GodotDemo](./examples/GodotDemo) 的 `Data/BattleGE.json`——把血量/攻击力改进 JSON

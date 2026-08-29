@@ -25,9 +25,13 @@ GE 目录字段多、约束隐蔽（属性名必须已注册、代码片段必�
 
 1. **加载档案**：填游戏托管 DLL 路径。仓库内运行会自动预填 GodotDemo 构建产物
    （`examples/GodotDemo/.godot/mono/temp/bin/Debug/GodotDemo.dll`）与目录文件
-   （`examples/GodotDemo/Data/BattleGE.json`）。
+   （`examples/GodotDemo/Data/BattleGE.json`）。程序集以内存副本加载（`LoadFromStream`），
+   不持有游戏 DLL 的文件句柄——编辑器开着也能重新编译游戏；换新构建产物需重新加载档案。
 2. **打开目录**：效果列表按 JSON 出现顺序显示，左侧可增删效果、查看已注册标签树。
+   加载器拒绝重复的效果键（`Duplicate effect name '…'`），打开即报、不会静默取后者。
 3. **编辑**：右侧改字段，顶部校验横幅实时显示往返结果，未保存时列表区有脏标记。
+   重命名效果会显示一条提示：保存只更新目录内的键，目录外的旧引用（游戏代码里的
+   `catalog.Get("…")` 等）不会自动更新；提示持续到保存落盘为止。
 4. **保存**：写回原路径。
 
 界面分区：左栏 = 档案 / 目录文件 / 标签树；右栏 = 校验横幅 / 效果编辑器 / GasNetLog

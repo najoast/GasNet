@@ -14,6 +14,10 @@ namespace GasNet.Editor;
 /// Type（IsAssignableFrom 全部失效）。因此解析 GasNet/GasNet.Data 时返回 null 回落到编辑器
 /// 自身副本，其余依赖才从游戏目录探测；引用宿主引擎类型（Godot Node / Unity 组件）的类会
 /// 加载失败，按 ReflectionTypeLoadException 跳过并记录日志。</para>
+///
+/// <para>所有程序集都以内存副本加载（LoadFromStream）：LoadFromAssemblyPath 会让 ALC 持有
+/// 文件句柄，游戏重新编译时 MSBuild 复制 DLL 报 MSB3027。编辑器开着也允许游戏重新构建；
+/// 换新构建产物需重新加载档案。</para>
 /// </summary>
 public sealed class EditorProfile
 {
@@ -46,13 +50,25 @@ public sealed class EditorProfile
             if (assemblyName.Name is "GasNet" or "GasNet.Data" or "System.Text.Json")
                 return null; // 保持与编辑器相同的类型同一性
             var probe = Path.Combine(gameDirectory, assemblyName.Name + ".dll");
-            return File.Exists(probe) ? alc.LoadFromAssemblyPath(probe) : null;
+            if (!File.Exists(probe))
+                return null;
+            try
+            {
+                // 依赖同样走内存副本，避免锁住游戏目录里的 DLL。
+                return alc.LoadFromStream(new MemoryStream(File.ReadAllBytes(probe)));
+            }
+            catch (Exception e) when (e is IOException or BadImageFormatException)
+            {
+                return null; // 游戏正在重新编译时可能读到半个文件或架构不符，按缺失处理
+            }
         };
 
         Assembly assembly;
         try
         {
-            assembly = context.LoadFromAssemblyPath(fullPath);
+            // 内存副本加载：LoadFromAssemblyPath 会让 ALC 持有句柄直到编辑器退出，
+            // 游戏重新编译时 MSBuild 报 MSB3027（文件被编辑器锁定）。MemoryStream 交给 GC。
+            assembly = context.LoadFromStream(new MemoryStream(File.ReadAllBytes(fullPath)));
         }
         catch (BadImageFormatException e)
         {

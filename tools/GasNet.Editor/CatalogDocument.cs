@@ -13,6 +13,9 @@ public sealed class CatalogDocument
     public sealed class Entry
     {
         public string Name = "";
+        /// <summary>名称在最近一次打开/保存文件时的值；null = 本会话新建。
+        /// Name ≠ SavedName 表示改名未落盘，UI 据此提示目录外的旧引用（游戏代码按名称取效果）。</summary>
+        public string? SavedName;
         public GameplayEffectDefinition Def = new();
     }
 
@@ -53,7 +56,7 @@ public sealed class CatalogDocument
         // LoadCatalog 返回 Dictionary（无序）；按 JSON 文件里的出现顺序重排，保持编辑视图与文件一致。
         using var document = JsonDocument.Parse(json);
         foreach (var property in document.RootElement.GetProperty("effects").EnumerateObject())
-            Effects.Add(new Entry { Name = property.Name, Def = catalog.Effects[property.Name] });
+            Effects.Add(new Entry { Name = property.Name, SavedName = property.Name, Def = catalog.Effects[property.Name] });
 
         Path = path;
         Dirty = false;
@@ -66,12 +69,16 @@ public sealed class CatalogDocument
             Effects.Select(entry => new KeyValuePair<string, GameplayEffectDefinition>(entry.Name, entry.Def))));
         Path = path;
         Dirty = false;
+        foreach (var entry in Effects)
+            entry.SavedName = entry.Name; // 改名已落盘，撤销"旧引用"提示
     }
 
     /// <summary>全量往返校验：写出→真加载器读回。返回错误列表（空 = 通过）。</summary>
     public List<string> Validate(GasNetDataLoadOptions options)
     {
         var errors = new List<string>();
+        if (Effects.Any(entry => entry.Name.Length == 0))
+            errors.Add("效果名不能为空。");
         if (Effects.GroupBy(e => e.Name, StringComparer.Ordinal).FirstOrDefault(g => g.Count() > 1) is { } dup)
             errors.Add($"效果名重复：'{dup.Key}'。");
 

@@ -363,6 +363,14 @@ public class GasNetDataTests
         "unknown field 'durationPoliccy'");
 
     [Fact]
+    public void DuplicateEffectName_IsRejected() => LoadThrows("""
+        { "effects": {
+            "GE_X": { "durationPolicy": "Instant" },
+            "GE_X": { "durationPolicy": "Infinite" }
+        } }
+        """, "Duplicate effect name 'GE_X'");
+
+    [Fact]
     public void InvalidEnumValue_IsRejected() => LoadThrows(
         """ { "effects": { "GE_X": { "durationPolicy": "Sometimes" } } } """,
         "is not a valid GameplayEffectDurationType");
