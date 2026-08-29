@@ -21,9 +21,11 @@ public sealed class GasNetDataLoadOptions
     public IReadOnlyDictionary<string, Type> Types => _types;
 
     /// <summary>Registers an attribute set under its simple name and full name.</summary>
-    public GasNetDataLoadOptions RegisterAttributeSet<T>() where T : AttributeSet
+    public GasNetDataLoadOptions RegisterAttributeSet<T>() where T : AttributeSet => RegisterAttributeSet(typeof(T));
+
+    public GasNetDataLoadOptions RegisterAttributeSet(Type type)
     {
-        RegisterNamed(_attributeSets, typeof(T), name: null);
+        RegisterNamed(_attributeSets, type, name: null);
         return this;
     }
 
