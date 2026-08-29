@@ -61,3 +61,4 @@ nunit-*.xml
 .VSCodeCounter
 GASDocumentation
 TestResults/ 
+.godot/ 

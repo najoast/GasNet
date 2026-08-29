@@ -154,5 +154,6 @@ Passive Armor Stacks（4 秒 1 层、上限 4、受击掉层）、CounterAttack�
    `Time.GetTicksMsec() / 1000f` 实现 `ITimeSource`。
 3. Cue 表现：继承 `GameplayCueNotify_Static/_Actor`，在事件回调里操作 `Node`/粒子/音频即可。
 
-> 注意：`GasNet.Sample`、`GasNet.Demo`、`GasNet.Tests` 仍是 `net10.0`——它们是宿主侧内容/工具，
-> 不随核心库进引擎。
+**可运行的示例**：[examples/GodotDemo](./examples/GodotDemo) —— 一个完整的 Godot 4.4 工程，
+演示全部四个接缝（时间注入、Tick 驱动、节点持有 ASC、Cue 表现适配），空格攻击 + 敌人自动反击。
+`GasNet.Sample`、`GasNet.Demo`、`GasNet.Tests` 仍是 `net10.0`（宿主侧内容/工具，不随核心库进引擎）。
