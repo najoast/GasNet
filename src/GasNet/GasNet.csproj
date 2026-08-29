@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>GasNet</RootNamespace>
+    <AssemblyName>GasNet</AssemblyName>
+    <Description>C# port of Unreal Engine's Gameplay Ability System (GAS) semantics, per GASDocumentation.</Description>
+  </PropertyGroup>
+
+</Project>
