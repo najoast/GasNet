@@ -84,6 +84,7 @@ ExecCalc 可 `MarkGameplayCuesHandledManually()` 抑制。
 ## 与 UE 的有意偏差
 
 - **无网络/预测层**：本地权威单线程模型。`NetExecutionPolicy` 保留为说明性枚举；无 Replication、PredictionKey、FastArray、RPC batching。
+  接入"服务端权威 + 前端纯表现"的网络架构的方案见 [docs/networking.md](docs/networking.md)。
 - **时间由宿主驱动**：ASC 不自带心跳，需周期调用 `ASC.Tick(dt)`；测试/回放注入 `ManualTimeSource`。
 - **数据驱动为"JSON 目录 + 宿主注册"模型**（见下方"数据驱动"一节）：无 .ini/.udt 资产管线；标签仍是运行时注册（JSON 里的标签名首次出现时自动注册，不校验预先存在的标签表）；无曲线（`ScalableFloatMagnitude.ValuePerLevel` 代替）；无蓝图（逻辑类 ExecCalc/MMC/CAR/Ability 以"类型名 + 宿主注册"从数据中引用）。
 - **AbilityTask 简化**：文档 §4.7 的任务系统用 `OnAbilityTick` 钩子 + C# 事件代替（`WaitTargetData`/蒙辰类任务不在范围内）。
