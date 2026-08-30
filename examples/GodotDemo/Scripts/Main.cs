@@ -92,14 +92,15 @@ public sealed partial class Enemy : GasActor
 
 	public override GasActor? CurrentTarget { get; set; }
 
-	protected override void OnReady()
-	{
-		Name = "Enemy";
-		Position = new Vector2(850, 340);
-		ASC.AddSet<BattleAttributeSet>();
-		ASC.ApplyGameplayEffectToSelf(BattleData.InitStatsEnemy);
-		ASC.GiveAbility(new GameplayAbilitySpec(new AttackAbility(), level: 1));
-	}
+		protected override void OnReady()
+		{
+			Name = "Enemy";
+			Position = new Vector2(850, 340);
+			ASC.AddSet<BattleAttributeSet>();
+			ASC.ApplyGameplayEffectToSelf(BattleData.InitStatsEnemy);
+			// 自动反击同样走输入路径，必须把能力绑到 InputID=1（此前缺省为 0，敌人从未反击成功）
+			ASC.GiveAbility(new GameplayAbilitySpec(new AttackAbility(), level: 1, inputID: 1));
+		}
 
 	public override void _Process(double delta)
 	{
