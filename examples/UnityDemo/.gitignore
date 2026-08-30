@@ -1,0 +1,23 @@
+# Unity 生成的目录（首次打开工程后出现）
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]serSettings/
+MemoryCaptures/
+Recordings/
+
+# Unity 为工程生成的 IDE 工程文件
+*.csproj
+*.sln
+*.user
+.idea/
+.vs/
+
+# 其他
+sysinfo.txt
+*.pidb
+*.booproj
+crashlytics-build.properties

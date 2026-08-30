@@ -166,8 +166,9 @@ ns2.1 目标引用 System.Text.Json 包，net10.0 用内置实现）。读写对
 - **未知字段一律报错**（`GasNetDataException`，消息带效果名与字段路径）——数据格式的拼写错误必须大声失败；重复的效果名同理（JSON 对象键重复会静默后者覆盖前者）。
 - 尚未支持从 JSON 表达：`GameplayTagQuery`（`GrantedApplicationImmunityQuery` / TagRequirements.TagQuery）。
 
-可运行示例：[examples/GodotDemo](./examples/GodotDemo) 的 `Data/BattleGE.json`——把血量/攻击力改进 JSON
-即可调参，无需重编译。
+可运行示例：[examples/GodotDemo](./examples/GodotDemo)（`Data/BattleGE.json`）与
+[examples/UnityDemo](./examples/UnityDemo)（`Assets/StreamingAssets/Data/BattleGE.json`）——
+把血量/攻击力改进 JSON 即可调参，无需重编译。
 
 ## 编辑器（tools/GasNet.Editor）
 
@@ -226,6 +227,11 @@ dotnet run --project tools/GasNet.Editor    # → http://localhost:5177
    GasNetLog.OnWarn = msg => Debug.LogWarning(msg);
    ```
 
+**可运行示例**：[examples/UnityDemo](./examples/UnityDemo) —— 一个完整的 Unity 工程（Unity 6，
+`Assets/Plugins/` 预置 netstandard2.1 构建产物），演示与 GodotDemo 相同的四个接缝（时间注入、
+Tick 驱动、MonoBehaviour 持有 ASC、Cue 表现适配），空格攻击 + 敌人自动反击；GE 定义由
+`src/GasNet.Data` 从 `Assets/StreamingAssets/Data/BattleGE.json` 加载（数据驱动示例）。
+
 ### Godot 4 (C#)
 
 1. 在游戏工程 `.csproj` 里 `<ProjectReference Include="...\src\GasNet\GasNet.csproj"/>` 直接引用，
@@ -236,5 +242,6 @@ dotnet run --project tools/GasNet.Editor    # → http://localhost:5177
 
 **可运行的示例**：[examples/GodotDemo](./examples/GodotDemo) —— 一个完整的 Godot 工程，
 演示全部四个接缝（时间注入、Tick 驱动、节点持有 ASC、Cue 表现适配），空格攻击 + 敌人自动反击；
-GE 定义由 `src/GasNet.Data` 从 `Data/BattleGE.json` 加载（数据驱动示例）。
+GE 定义由 `src/GasNet.Data` 从 `Data/BattleGE.json` 加载（数据驱动示例）。Unity 版：
+[examples/UnityDemo](./examples/UnityDemo)。
 `GasNet.Sample`、`GasNet.Demo`、`GasNet.Tests` 仍是 `net10.0`（宿主侧内容/工具，不随核心库进引擎）。

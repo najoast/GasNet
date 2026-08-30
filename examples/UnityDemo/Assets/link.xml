@@ -1,0 +1,13 @@
+<linker>
+  <!-- GasNet 通过反射发现 AttributeSet 的 GameplayAttributeData 字段（IL2CPP 防裁剪，见根 README"接入 Unity"） -->
+  <assembly fullname="GasNet" preserve="all"/>
+  <assembly fullname="GasNet.Data" preserve="all"/>
+
+  <!-- Demo 侧：属性集与逻辑类同样依赖反射 -->
+  <assembly fullname="Assembly-CSharp">
+    <namespace fullname="UnityDemo" preserve="all"/>
+  </assembly>
+
+  <!-- System.Text.Json 反射序列化 GE 目录 -->
+  <assembly fullname="System.Text.Json" preserve="all"/>
+</linker>

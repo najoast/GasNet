@@ -1,0 +1,74 @@
+{
+  "effects": {
+    "GE_InitStats_Hero": {
+      "modifiers": [
+        {
+          "attribute": "BattleAttributeSet.MaxHealth",
+          "magnitude": {
+            "type": "scalableFloat",
+            "value": 100
+          },
+          "op": "Override"
+        },
+        {
+          "attribute": "BattleAttributeSet.Health",
+          "magnitude": {
+            "type": "scalableFloat",
+            "value": 100
+          },
+          "op": "Override"
+        },
+        {
+          "attribute": "BattleAttributeSet.AttackPower",
+          "magnitude": {
+            "type": "scalableFloat",
+            "value": 14
+          },
+          "op": "Override"
+        }
+      ]
+    },
+    "GE_InitStats_Enemy": {
+      "modifiers": [
+        {
+          "attribute": "BattleAttributeSet.MaxHealth",
+          "magnitude": {
+            "type": "scalableFloat",
+            "value": 60
+          },
+          "op": "Override"
+        },
+        {
+          "attribute": "BattleAttributeSet.Health",
+          "magnitude": {
+            "type": "scalableFloat",
+            "value": 60
+          },
+          "op": "Override"
+        },
+        {
+          "attribute": "BattleAttributeSet.AttackPower",
+          "magnitude": {
+            "type": "scalableFloat",
+            "value": 7
+          },
+          "op": "Override"
+        }
+      ]
+    },
+    "GE_Damage": {
+      "modifiers": [
+        {
+          "attribute": "BattleAttributeSet.Health",
+          "magnitude": {
+            "type": "setByCaller",
+            "tag": "Data.Damage"
+          }
+        }
+      ],
+      "cueTags": [
+        "GameplayCue.Combat.Hit"
+      ]
+    }
+  }
+}
