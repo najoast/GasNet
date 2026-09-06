@@ -322,6 +322,43 @@ public class AbilityTests
         Assert.DoesNotContain(grantedSpec, asc.GrantedAbilities);
     }
 
+    // ---------------- Activation failure logging (AbilitySystemGlobals.LogActivationFailures) ----------------
+
+    [Fact]
+    public void Activation_Failure_Logs_Warning_Only_When_Enabled()
+    {
+        var world = new TestWorld();
+        var asc = world.Target;
+        var ability = new InstantEndAbility();
+        ability.ActivationBlockedTags.AddTag(T.Tag("State.Debuff.Stun"));
+        var handle = asc.GiveAbility(new GameplayAbilitySpec(ability, 1));
+        asc.AddLooseGameplayTag(T.Tag("State.Debuff.Stun"));
+
+        var globals = AbilitySystemGlobals.Get();
+        var previousSetting = globals.LogActivationFailures;
+        var previousWarn = GasNetLog.OnWarn;
+        try
+        {
+            var warns = new List<string>();
+            GasNetLog.OnWarn = warns.Add;
+
+            Assert.False(asc.TryActivateAbility(handle)); // off by default: silent
+            Assert.DoesNotContain(warns, w => w.Contains("activation failed"));
+
+            globals.LogActivationFailures = true;
+            Assert.False(asc.TryActivateAbility(handle));
+            var failure = warns.FirstOrDefault(w => w.Contains("activation failed"));
+            Assert.NotNull(failure);
+            Assert.Contains("InstantEndAbility", failure);
+            Assert.Contains("State.Debuff.Stun", failure); // failure tags name the cause
+        }
+        finally
+        {
+            globals.LogActivationFailures = previousSetting;
+            GasNetLog.OnWarn = previousWarn;
+        }
+    }
+
     // ---------------- Test doubles ----------------
 
     private sealed class InstantEndAbility : GameplayAbility

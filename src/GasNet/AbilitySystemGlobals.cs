@@ -13,6 +13,13 @@ public sealed class AbilitySystemGlobals
 
     public GameplayCueManager GameplayCueManager { get; private set; } = new();
 
+    /// <summary>
+    /// When true, failed ability activations (tag/cost/cooldown rejections) are logged via
+    /// <see cref="GasNetLog.Warn"/> — handy for debugging abilities that "silently do nothing".
+    /// Off by default: failing activation is routine (cooldowns, blocked tags), not exceptional.
+    /// </summary>
+    public bool LogActivationFailures { get; set; }
+
     /// <summary>Initializes the tag manager and the global cue manager. Safe to call multiple times.</summary>
     public void InitGlobalData()
     {

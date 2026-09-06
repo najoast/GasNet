@@ -153,6 +153,8 @@ public sealed partial class AbilitySystemComponent
         {
             abilityObj.HandleActivationFailed(failureTags);
             OnAbilityFailed?.Invoke(this, spec, failureTags);
+            if (AbilitySystemGlobals.Get().LogActivationFailures)
+                GasNetLog.Warn($"{abilityObj.GetType().Name} activation failed: [{failureTags}]");
             return false;
         }
 
