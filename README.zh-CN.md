@@ -1,15 +1,26 @@
+<div align="center">
+
 # GasNet
 
-[![CI](https://img.shields.io/github/actions/workflow/status/najoast/GasNet/ci.yml?branch=main&label=CI)](./.github/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/github/license/najoast/GasNet)](./LICENSE)
-[![.NET](https://img.shields.io/badge/.NET-netstandard2.1%20%7C%20net10.0-512BD4)](#接入-unity--godot)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/github/actions/workflow/status/najoast/GasNet/ci.yml?branch=main&label=CI&style=for-the-badge">
+  <source media="(prefers-color-scheme: light)" srcset="https://img.shields.io/github/actions/workflow/status/najoast/GasNet/ci.yml?branch=main&label=CI&style=for-the-badge&color=2E7D32">
+  <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/najoast/GasNet/ci.yml?branch=main&label=CI&style=for-the-badge">
+</picture>
+&nbsp;
+<img alt="License: MIT" src="https://img.shields.io/github/license/najoast/GasNet?style=for-the-badge&color=blue">
+&nbsp;
+<img alt=".NET" src="https://img.shields.io/badge/.NET-netstandard2.1%20%7C%20net10.0-512BD4?style=for-the-badge">
+
+### **用 .NET 10 / C# 重新实现 Unreal Engine 的 Gameplay Ability System（GAS）。**
+
+*文档逐条对应 · 核心库零引擎依赖 · Unity / Godot 4 / 纯控制台 都能跑。*
 
 [English](./README.md) · [简体中文](./README.zh-CN.md)
 
-> **用 .NET 10 / C# 重新实现 Unreal Engine 的 Gameplay Ability System（GAS）。**
-> 文档逐条对应 · 核心库零引擎依赖 · Unity / Godot 4 / 纯控制台 都能跑。
-
 ---
+
+</div>
 
 ## 为什么是 GasNet
 

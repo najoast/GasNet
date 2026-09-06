@@ -1,15 +1,26 @@
+<div align="center">
+
 # GasNet
 
-[![CI](https://img.shields.io/github/actions/workflow/status/najoast/GasNet/ci.yml?branch=main&label=CI)](./.github/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/github/license/najoast/GasNet)](./LICENSE)
-[![.NET](https://img.shields.io/badge/.NET-netstandard2.1%20%7C%20net10.0-512BD4)](#unity--godot-integration)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/github/actions/workflow/status/najoast/GasNet/ci.yml?branch=main&label=CI&style=for-the-badge">
+  <source media="(prefers-color-scheme: light)" srcset="https://img.shields.io/github/actions/workflow/status/najoast/GasNet/ci.yml?branch=main&label=CI&style=for-the-badge&color=2E7D32">
+  <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/najoast/GasNet/ci.yml?branch=main&label=CI&style=for-the-badge">
+</picture>
+&nbsp;
+<img alt="License: MIT" src="https://img.shields.io/github/license/najoast/GasNet?style=for-the-badge&color=blue">
+&nbsp;
+<img alt=".NET" src="https://img.shields.io/badge/.NET-netstandard2.1%20%7C%20net10.0-512BD4?style=for-the-badge">
+
+### **A from-scratch C# reimplementation of Unreal Engine's Gameplay Ability System (GAS) on .NET 10.**
+
+*One-to-one with the documentation · Zero engine dependencies in the core library · Runs on Unity, Godot 4, or a plain console.*
 
 [English](./README.md) · [简体中文](./README.zh-CN.md)
 
-> **A from-scratch C# reimplementation of Unreal Engine's Gameplay Ability System (GAS) on .NET 10.**
-> One-to-one with the documentation · Zero engine dependencies in the core library · Runs on Unity, Godot 4, or a plain console.
-
 ---
+
+</div>
 
 ## Why GasNet
 
