@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\GasNet\GasNet.csproj" />
     <ProjectReference Include="..\..\src\GasNet.Data\GasNet.Data.csproj" />
+    <ProjectReference Include="..\GasNet.Editor.Core\GasNet.Editor.Core.csproj" />
   </ItemGroup>
 
 </Project>

@@ -9,19 +9,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- 被测项目是 Microsoft.NET.Sdk.Web（Blazor Server）；测试只触碰 CatalogDocument/
-         EditorProfile 等纯 C# 类型，但程序集解析需要 ASP.NET Core 共享框架。 -->
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\tools\GasNet.Editor\GasNet.Editor.csproj" />
+    <!-- 被测对象：纯 C# 库（CatalogDocument / CueDocument / EditorProfile / CatalogSearch / Ui / EditorLogBuffer）。 -->
+    <ProjectReference Include="..\..\tools\GasNet.Editor.Core\GasNet.Editor.Core.csproj" />
   </ItemGroup>
 
 </Project>

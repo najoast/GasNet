@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>GasNet.Editor</RootNamespace>
+    <AssemblyName>GasNet.Editor.Core</AssemblyName>
+    <Description>Pure-C# document model + load-options reflection shared between the Blazor editor (tools/GasNet.Editor) and the Unity EditorWindow extension. No Blazor/ASP.NET dependency.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GasNet\GasNet.csproj" />
+    <ProjectReference Include="..\..\src\GasNet.Data\GasNet.Data.csproj" />
+  </ItemGroup>
+
+</Project>
