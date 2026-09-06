@@ -1,0 +1,178 @@
+@* 单个 CueDefinition 的全字段表单：tag、isStatic、actions 列表。
+   Action 的 per-type 字段由反射 action 类型的公共可读写属性生成（按属性类型派发 UI 控件）。
+   任何修改经 Changed 回调触发上层往返校验。*@
+
+<div class="effect">
+    <div class="row header">
+        <h2>cue</h2>
+        <input class="name mono" value="@Entry.Name" @onchange="Rename" title="cue 名（JSON 键）" />
+        <span class="hint">@(Def.IsStatic ? "Static · 一次性 Execute" : "Actor · 生命周期 OnActive/WhileActive/Removed")</span>
+    </div>
+    @if (Entry.SavedName is { } savedName && savedName.Length > 0 && savedName != Entry.Name)
+    {
+        <p class="rename-warn">⚠ 已重命名 '@savedName' → '@Entry.Name'：保存只更新目录内的键，目录外的旧引用不会自动更新。</p>
+    }
+
+    <h3>基本</h3>
+    <div class="row">
+        <label>tag <input list="gas-tags" value="@Def.Tag.Name"
+            @onchange="e => SetTag(e.Value?.ToString())" placeholder="GameplayCue.X" /></label>
+        @if (TagIsOffRoot())
+        {
+            <span class="stale">⚠ 必须在 'GameplayCue.' 根下，运行时会被 GameplayCueManager 忽略。</span>
+        }
+        <label class="checkbox">isStatic
+            <input type="checkbox" checked="@Def.IsStatic" @onchange="ToggleIsStatic" />
+        </label>
+    </div>
+
+    <h3>动作（actions）</h3>
+    @foreach (var action in Def.Actions)
+    {
+        var localAction = action; // 闭包捕获：循环变量在 foreach 里每次是新变量，但保险起见
+        var props = PropertyList(localAction);
+        <div class="card" @key="localAction">
+            <div class="row">
+                <label>type
+                    <select value="@localAction.GetType().Name" @onchange="e => ReplaceAction(localAction, e.Value?.ToString())">
+                        @if (!Profile.CueActions.Any(a => a.ActionType.Name == localAction.GetType().Name))
+                        {
+                            <option value="@localAction.GetType().Name">@localAction.GetType().Name（未加载）</option>
+                        }
+                        @foreach (var (actionType, _) in Profile.CueActions)
+                        {
+                            <option value="@actionType.Name">@actionType.Name</option>
+                        }
+                    </select>
+                </label>
+                <label>triggerOn
+                    <select value="@localAction.TriggerOn.ToString()"
+                            @onchange="e => { localAction.TriggerOn = Ui.Enum<GameplayCueEvent>(e.Value?.ToString()); Changed(); }">
+                        @foreach (var name in Enum.GetNames<GameplayCueEvent>())
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    </select>
+                </label>
+                <button class="danger" @onclick="() => RemoveAction(localAction)">✕ 移除</button>
+            </div>
+            @foreach (var prop in props)
+            {
+                <div class="row">
+                    <label>@prop.Name
+                        @if (prop.PropertyType == typeof(string))
+                        {
+                            <input value="@(prop.GetValue(localAction) as string ?? "")"
+                                   @onchange="e => SetStringProp(localAction, prop, e.Value?.ToString())" />
+                        }
+                        else if (prop.PropertyType == typeof(bool))
+                        {
+                            <input type="checkbox" checked="@((bool)(prop.GetValue(localAction) ?? false))"
+                                   @onchange="e => { prop.SetValue(localAction, (bool)e.Value!); Changed(); }" />
+                        }
+                        else if (prop.PropertyType == typeof(float))
+                        {
+                            <input class="num" type="number" step="any"
+                                   value="@((float)(prop.GetValue(localAction) ?? 0f))"
+                                   @onchange="e => { prop.SetValue(localAction, Ui.F(e.Value?.ToString())); Changed(); }" />
+                        }
+                        else if (prop.PropertyType == typeof(int))
+                        {
+                            <input class="num" type="number"
+                                   value="@((int)(prop.GetValue(localAction) ?? 0))"
+                                   @onchange="e => { prop.SetValue(localAction, Ui.I(e.Value?.ToString())); Changed(); }" />
+                        }
+                        else
+                        {
+                            <span class="hint">不支持的属性类型 @prop.PropertyType.Name（schema 的 Writer 仍会写出/读回，编辑器当前不提供可视化）。</span>
+                        }
+                    </label>
+                </div>
+            }
+        </div>
+    }
+    <button @onclick="AddAction" disabled="@(Profile.CueActions.Count == 0)">＋ 动作</button>
+
+    <details class="jsonpreview">
+        <summary>JSON 预览（保存时的写出形态，只读）</summary>
+        <pre class="mono">@PreviewJson()</pre>
+    </details>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CueDocument.Entry Entry { get; set; } = default!;
+    [Parameter, EditorRequired] public EditorProfile Profile { get; set; } = default!;
+    [Parameter, EditorRequired] public Action Changed { get; set; } = default!;
+
+    private CueDefinition Def => Entry.Def;
+
+    private bool TagIsOffRoot() =>
+        !string.IsNullOrEmpty(Def.Tag.Name) &&
+        !Def.Tag.Name.StartsWith("GameplayCue.", StringComparison.Ordinal);
+
+    /// <summary>写出形态由 GasNetDataCueWriter 产生；编辑器自身不写 JSON，预览与落盘同源。</summary>
+    private string PreviewJson() => GasNetDataCueWriter.WriteCatalog(
+        [new KeyValuePair<string, CueDefinition>(Entry.Name, Entry.Def)],
+        Profile.BuildCueOptions());
+
+    private static System.Reflection.PropertyInfo[] PropertyList(CueAction action) =>
+        [.. action.GetType().GetProperties()
+            .Where(p => p.GetMethod is not null && p.SetMethod is not null)
+            .Where(p => p.GetIndexParameters().Length == 0)
+            .Where(p => p.Name != nameof(CueAction.TriggerOn))
+            .Where(p => p.PropertyType == typeof(string) || p.PropertyType == typeof(bool)
+                     || p.PropertyType == typeof(float) || p.PropertyType == typeof(int))
+            .OrderBy(p => p.Name, StringComparer.Ordinal)];
+
+    private void SetTag(string? text)
+    {
+        Def.Tag = Ui.ParseTag(text);
+        Changed();
+    }
+
+    private void ToggleIsStatic(ChangeEventArgs e)
+    {
+        Def.IsStatic = (bool)(e.Value ?? false);
+        Changed();
+    }
+
+    private void SetStringProp(CueAction action, System.Reflection.PropertyInfo prop, string? value)
+    {
+        prop.SetValue(action, value ?? "");
+        Changed();
+    }
+
+    private void Rename(ChangeEventArgs e)
+    {
+        Entry.Name = (e.Value?.ToString() ?? "").Trim();
+        Changed();
+    }
+
+    private void AddAction()
+    {
+        if (Profile.CueActions.Count == 0) return;
+        var first = Profile.CueActions[0].ActionType;
+        var action = (CueAction)Activator.CreateInstance(first)!;
+        action.TriggerOn = Def.IsStatic ? GameplayCueEvent.Executed : GameplayCueEvent.OnActive;
+        Def.Actions.Add(action);
+        Changed();
+    }
+
+    private void RemoveAction(CueAction action)
+    {
+        Def.Actions.Remove(action);
+        Changed();
+    }
+
+    private void ReplaceAction(CueAction current, string? newTypeName)
+    {
+        if (Profile.CueActions.FirstOrDefault(a => a.ActionType.Name == newTypeName) is not { ActionType: { } type })
+            return;
+        if (Activator.CreateInstance(type) is not CueAction replacement) return;
+        replacement.TriggerOn = current.TriggerOn;
+        var index = Def.Actions.IndexOf(current);
+        if (index < 0) return;
+        Def.Actions[index] = replacement;
+        Changed();
+    }
+}

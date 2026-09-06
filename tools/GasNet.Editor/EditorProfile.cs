@@ -30,11 +30,16 @@ public sealed class EditorProfile
     public List<Type> Magnitudes { get; } = [];
     public List<Type> Requirements { get; } = [];
     public List<Type> Abilities { get; } = [];
+    /// <summary>Discovered <see cref="CueAction"/> subclasses in the loaded game assembly,
+    /// each with the static <c>Schema</c> field (if any) that the action type declares.
+    /// The editor's load options register both the type and its schema so the data layer's
+    /// per-action Reader/Writer pair can run during round-trip.</summary>
+    public List<(Type ActionType, CueActionSchema? Schema)> CueActions { get; } = [];
 
     public string? LoadedAssembly { get; private set; }
     public bool HasProfile => LoadedAssembly is not null;
     public int AttributeSetCount => _attributeByKey.Values.Select(a => a.AttributeSetType).Distinct().Count();
-    public int CalculableCount => Executions.Count + Magnitudes.Count + Requirements.Count + Abilities.Count;
+    public int CalculableCount => Executions.Count + Magnitudes.Count + Requirements.Count + Abilities.Count + CueActions.Count;
 
     private DateTime _loadedWriteTimeUtc;
     private long _loadedLength;
@@ -105,6 +110,7 @@ public sealed class EditorProfile
         Magnitudes.Clear();
         Requirements.Clear();
         Abilities.Clear();
+        CueActions.Clear();
         Log.Clear();
         _attributeByKey.Clear();
         _typeByName.Clear();
@@ -137,10 +143,20 @@ public sealed class EditorProfile
             else if (typeof(ModifierMagnitudeCalculation).IsAssignableFrom(type)) { Magnitudes.Add(type); _typeByName[type.Name] = type; }
             else if (typeof(GameplayEffectCustomApplicationRequirement).IsAssignableFrom(type)) { Requirements.Add(type); _typeByName[type.Name] = type; }
             else if (typeof(GameplayAbility).IsAssignableFrom(type)) { Abilities.Add(type); _typeByName[type.Name] = type; }
+            else if (typeof(CueAction).IsAssignableFrom(type))
+            {
+                // Each action type optionally declares a public static readonly CueActionSchema Schema field.
+                // The convention is just a name lookup — no magic attributes. The schema is what the data
+                // layer reads/writes, so without one the action round-trips as a name-only entry.
+                CueActionSchema? schema = null;
+                var schemaField = type.GetField("Schema", BindingFlags.Public | BindingFlags.Static);
+                if (schemaField?.GetValue(null) is CueActionSchema s) schema = s;
+                CueActions.Add((type, schema));
+            }
         }
 
         LoadedAssembly = fullPath;
-        Log.Add($"已加载 {assembly.GetName().Name}（属性 {Attributes.Count} 个，可引用类型 {CalculableCount} 个）。" +
+        Log.Add($"已加载 {assembly.GetName().Name}（属性 {Attributes.Count} 个，可引用类型 {CalculableCount} 个，含 {CueActions.Count} 个 cue 动作）。" +
                 "重新加载档案后建议重新打开目录文件。");
     }
 
@@ -161,6 +177,18 @@ public sealed class EditorProfile
             options.RegisterAttributeSet(group.Key);
         foreach (var type in Executions.Concat(Magnitudes).Concat(Requirements).Concat(Abilities))
             options.RegisterType(type);
+        return options;
+    }
+
+    /// <summary>构建 cue 目录的加载/校验选项：所有发现的 <see cref="CueAction"/> 子类连带
+    /// 它们声明的 <see cref="CueActionSchema"/> 一起注册——没有 schema 的 action 也能用，
+    /// 只是 round-trip 时除 <c>type</c> 和 <c>triggerOn</c> 外不带任何字段。</summary>
+    public GasNetDataCueLoadOptions BuildCueOptions()
+    {
+        var options = new GasNetDataCueLoadOptions();
+        foreach (var (actionType, schema) in CueActions)
+            if (schema is not null) options.RegisterActionType(actionType, schema);
+            else options.RegisterActionType(actionType);
         return options;
     }
 }

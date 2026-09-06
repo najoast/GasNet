@@ -1,12 +1,22 @@
 @page "/"
 @inject EditorProfile Profile
 @inject CatalogDocument Document
+@inject CueDocument CueDoc
 @inject EditorLogBuffer LogBuffer
 @inject IJSRuntime JS
 
 <div class="header">
-    <h1>GasNet Editor <span class="subtitle">GameplayEffect 目录编辑器 · 读写只经 GasNet.Data</span></h1>
+    <h1>GasNet Editor <span class="subtitle">GE + Cue 目录编辑器 · 读写只经 GasNet.Data</span></h1>
     <ThemeToggle />
+</div>
+
+<div class="tabs">
+    <button class="@(ActiveTab == "ge" ? "active" : "")" @onclick="@(() => ActiveTab = "ge")">
+        GameplayEffect 目录
+    </button>
+    <button class="@(ActiveTab == "cue" ? "active" : "")" @onclick="@(() => ActiveTab = "cue")">
+        GameplayCue 目录
+    </button>
 </div>
 
 <div class="layout">
@@ -18,7 +28,7 @@
             <button @onclick="LoadProfile">加载</button>
             @if (Profile.HasProfile)
             {
-                <p class="ok">✔ @Profile.AttributeSetCount 个属性集 · @Profile.CalculableCount 个可引用类型</p>
+                <p class="ok">✔ @Profile.AttributeSetCount 个属性集 · @Profile.CalculableCount 个可引用类型（含 @Profile.CueActions.Count 个 cue 动作）</p>
                 @if (Profile.IsStale())
                 {
                     <p class="stale">⚠ 档案文件已变更（游戏重新编译过）——下拉框与校验依据可能过期，请重新加载。</p>
@@ -26,7 +36,7 @@
             }
             else
             {
-                <p class="hint">反射加载游戏 DLL，自动发现属性集与 ExecCalc/MMC/CAR/能力类型（下拉框数据源 + 校验依据）。</p>
+                <p class="hint">反射加载游戏 DLL，自动发现属性集与 ExecCalc/MMC/CAR/能力/CueAction 类型（下拉框数据源 + 校验依据）。</p>
             }
             @foreach (var line in Profile.Log)
             {
@@ -34,37 +44,74 @@
             }
         </section>
 
-        <section>
-            <h2>2 · 目录文件</h2>
-            <input class="wide mono" @bind="Document.Path" @bind:event="oninput" placeholder="目录 JSON 路径" />
-            <div class="row">
-                <button @onclick="OpenCatalog" disabled="@(Document.Path.Length == 0 || !Profile.HasProfile)">打开</button>
-                <button @onclick="SaveCatalog" disabled="@(Document.Path.Length == 0 || Document.Effects.Count == 0)">保存</button>
-                <button @onclick="Undo" disabled="@(!Document.CanUndo)" title="撤销上一次编辑">↩ 撤销</button>
-                <button @onclick="Redo" disabled="@(!Document.CanRedo)" title="重做">↪ 重做</button>
-                @if (Document.Dirty)
-                {
-                    <span class="dirty">● 未保存</span>
-                }
-            </div>
+        @if (ActiveTab == "ge")
+        {
+            <section>
+                <h2>2 · 目录文件</h2>
+                <input class="wide mono" @bind="Document.Path" @bind:event="oninput" placeholder="目录 JSON 路径" />
+                <div class="row">
+                    <button @onclick="OpenCatalog" disabled="@(Document.Path.Length == 0 || !Profile.HasProfile)">打开</button>
+                    <button @onclick="SaveCatalog" disabled="@(Document.Path.Length == 0 || Document.Effects.Count == 0)">保存</button>
+                    <button @onclick="Undo" disabled="@(!Document.CanUndo)" title="撤销上一次编辑">↩ 撤销</button>
+                    <button @onclick="Redo" disabled="@(!Document.CanRedo)" title="重做">↪ 重做</button>
+                    @if (Document.Dirty)
+                    {
+                        <span class="dirty">● 未保存</span>
+                    }
+                </div>
 
-            <input class="wide" @bind="effectFilter" @bind:event="oninput" placeholder="按名称过滤效果…" />
+                <input class="wide" @bind="effectFilter" @bind:event="oninput" placeholder="按名称过滤效果…" />
 
-            <ul class="effects">
-                @foreach (var index in VisibleIndexes)
-                {
-                    var i = index;
-                    <li class="@(Document.SelectedIndex == i ? "selected" : "")"
-                        @onclick="() => Select(i)">@Document.Effects[i].Name</li>
-                }
-            </ul>
-            <div class="row">
-                <input @bind="newEffectName" placeholder="新效果名" />
-                <button @onclick="AddEffect" title="新建效果">＋</button>
-                <button @onclick="CloneSelected" disabled="@(Document.Selected is null)" title="克隆选中效果（插到后面）">⧉</button>
-                <button class="danger" @onclick="DeleteSelected" disabled="@(Document.Selected is null)" title="删除选中效果">✕</button>
-            </div>
-        </section>
+                <ul class="effects">
+                    @foreach (var index in VisibleIndexes)
+                    {
+                        var i = index;
+                        <li class="@(Document.SelectedIndex == i ? "selected" : "")"
+                            @onclick="() => Select(i)">@Document.Effects[i].Name</li>
+                    }
+                </ul>
+                <div class="row">
+                    <input @bind="newEffectName" placeholder="新效果名" />
+                    <button @onclick="AddEffect" title="新建效果">＋</button>
+                    <button @onclick="CloneSelected" disabled="@(Document.Selected is null)" title="克隆选中效果（插到后面）">⧉</button>
+                    <button class="danger" @onclick="DeleteSelected" disabled="@(Document.Selected is null)" title="删除选中效果">✕</button>
+                </div>
+            </section>
+        }
+        else
+        {
+            <section>
+                <h2>2 · 目录文件</h2>
+                <input class="wide mono" @bind="CueDoc.Path" @bind:event="oninput" placeholder="目录 JSON 路径" />
+                <div class="row">
+                    <button @onclick="OpenCueCatalog" disabled="@(CueDoc.Path.Length == 0 || !Profile.HasProfile)">打开</button>
+                    <button @onclick="SaveCueCatalog" disabled="@(CueDoc.Path.Length == 0 || CueDoc.Cues.Count == 0)">保存</button>
+                    <button @onclick="CueUndo" disabled="@(!CueDoc.CanUndo)" title="撤销上一次编辑">↩ 撤销</button>
+                    <button @onclick="CueRedo" disabled="@(!CueDoc.CanRedo)" title="重做">↪ 重做</button>
+                    @if (CueDoc.Dirty)
+                    {
+                        <span class="dirty">● 未保存</span>
+                    }
+                </div>
+
+                <input class="wide" @bind="cueFilter" @bind:event="oninput" placeholder="按名称过滤 cue…" />
+
+                <ul class="effects">
+                    @foreach (var index in VisibleCueIndexes)
+                    {
+                        var i = index;
+                        <li class="@(CueDoc.SelectedIndex == i ? "selected" : "")"
+                            @onclick="() => SelectCue(i)">@CueDoc.Cues[i].Name</li>
+                    }
+                </ul>
+                <div class="row">
+                    <input @bind="newCueName" placeholder="新 cue 名" />
+                    <button @onclick="AddCue" title="新建 cue">＋</button>
+                    <button @onclick="CloneCue" disabled="@(CueDoc.Selected is null)" title="克隆选中 cue（插到后面）">⧉</button>
+                    <button class="danger" @onclick="DeleteCue" disabled="@(CueDoc.Selected is null)" title="删除选中 cue">✕</button>
+                </div>
+            </section>
+        }
 
         <section>
             <h2>标签树（已注册）</h2>
@@ -104,7 +151,9 @@
             }
             else if (_errors.Count == 0)
             {
-                <span>✔ 目录往返校验通过（@Document.Effects.Count 个效果）</span>
+                <span>✔ @(ActiveTab == "ge"
+                    ? $"目录往返校验通过（{Document.Effects.Count} 个效果）"
+                    : $"目录往返校验通过（{CueDoc.Cues.Count} 个 cue）")</span>
             }
             else
             {
@@ -122,13 +171,27 @@
             }
         </section>
 
-        @if (Document.Selected is { } entry)
+        @if (ActiveTab == "ge")
         {
-            <EffectEditor Entry="entry" Profile="Profile" Changed="Refresh" />
+            @if (Document.Selected is { } entry)
+            {
+                <EffectEditor Entry="entry" Profile="Profile" Changed="Refresh" />
+            }
+            else
+            {
+                <p class="hint">左侧选择或新建一个效果。</p>
+            }
         }
         else
         {
-            <p class="hint">左侧选择或新建一个效果。</p>
+            @if (CueDoc.Selected is { } cueEntry)
+            {
+                <CueEditor Entry="cueEntry" Profile="Profile" Changed="Refresh" />
+            }
+            else
+            {
+                <p class="hint">左侧选择或新建一个 cue。</p>
+            }
         }
 
         <section class="log mono">
@@ -152,9 +215,12 @@
 @code {
     private string assemblyPath = "";
     private string newEffectName = "";
+    private string newCueName = "";
     private string effectFilter = "";
+    private string cueFilter = "";
     private string referenceMode = "tag";
     private string referenceQuery = "";
+    private string ActiveTab = "ge";
     private List<string> _errors = [];
     private List<string> _newTags = [];
     private List<string> _allTagNames = [];
@@ -171,6 +237,7 @@
         {
             assemblyPath = demoDll;
             Document.Path = System.IO.Path.Combine(repoRoot, "examples", "GodotDemo", "Data", "BattleGE.json");
+            CueDoc.Path = System.IO.Path.Combine(repoRoot, "examples", "GodotDemo", "Data", "BattleCue.json");
         }
     }
 
@@ -279,6 +346,92 @@
         }
     }
 
+    // ---- Cue tab actions ----
+
+    private async Task OpenCueCatalog()
+    {
+        if (CueDoc.Dirty && !await JS.InvokeAsync<bool>("confirm",
+                "当前 cue 目录有未保存的修改，打开新文件将丢弃它们。继续？"))
+            return;
+        try
+        {
+            CueDoc.Open(CueDoc.Path, Profile.BuildCueOptions());
+        }
+        catch (Exception exception)
+        {
+            _errors = [exception.Message];
+            _newTags = [];
+            return;
+        }
+        Refresh(trackUndo: false);
+    }
+
+    private async Task SaveCueCatalog()
+    {
+        if (_errors.Count > 0 && !await JS.InvokeAsync<bool>("confirm",
+                $"往返校验仍有 {_errors.Count} 个错误，游戏可能无法加载该文件。确定仍然保存？"))
+            return;
+        try
+        {
+            CueDoc.Save(CueDoc.Path, Profile.BuildCueOptions());
+        }
+        catch (Exception exception)
+        {
+            _errors = [exception.Message];
+            return;
+        }
+        Refresh(trackUndo: false);
+    }
+
+    private void CueUndo()
+    {
+        CueDoc.Undo();
+        Refresh(trackUndo: false);
+    }
+
+    private void CueRedo()
+    {
+        CueDoc.Redo();
+        Refresh(trackUndo: false);
+    }
+
+    private void AddCue()
+    {
+        if (string.IsNullOrWhiteSpace(newCueName))
+            return;
+        CueDoc.AddNew(newCueName.Trim());
+        newCueName = "";
+        Refresh();
+    }
+
+    private void CloneCue()
+    {
+        CueDoc.CloneSelected();
+        Refresh();
+    }
+
+    private void DeleteCue()
+    {
+        CueDoc.RemoveAt(CueDoc.SelectedIndex);
+        Refresh();
+    }
+
+    private void SelectCue(int index)
+    {
+        CueDoc.SelectedIndex = index;
+    }
+
+    private IEnumerable<int> VisibleCueIndexes
+    {
+        get
+        {
+            for (var i = 0; i < CueDoc.Cues.Count; i++)
+                if (cueFilter.Length == 0 ||
+                    CueDoc.Cues[i].Name.Contains(cueFilter, StringComparison.OrdinalIgnoreCase))
+                    yield return i;
+        }
+    }
+
     private IEnumerable<(string Effect, string Field)> ReferenceHits
     {
         get
@@ -305,29 +458,46 @@
 
     private void Refresh(bool trackUndo)
     {
-        if (trackUndo)
-            Document.CommitSnapshot();
-        Document.MarkDirty();
-        _errors = Profile.HasProfile ? Document.Validate(Profile.BuildOptions()) : ["未加载游戏程序集——无法往返校验。"];
+        if (ActiveTab == "ge")
+        {
+            if (trackUndo)
+                Document.CommitSnapshot();
+            Document.MarkDirty();
+            _errors = Profile.HasProfile ? Document.Validate(Profile.BuildOptions()) : ["未加载游戏程序集——无法往返校验。"];
+            _newTags = [.. CatalogSearch.AllTagOccurrences(Document.Effects)
+                .Select(o => o.Tag.Name)
+                .Where(n => !Document.FileTagNames.Contains(n))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(n => n, StringComparer.Ordinal)];
+        }
+        else
+        {
+            if (trackUndo)
+                CueDoc.CommitSnapshot();
+            CueDoc.MarkDirty();
+            _errors = Profile.HasProfile ? CueDoc.Validate(Profile.BuildCueOptions()) : ["未加载游戏程序集——无法往返校验。"];
+            _newTags = [.. CueDoc.Cues
+                .Where(c => c.Def.Tag.IsValid)
+                .Select(c => c.Def.Tag.Name)
+                .Where(n => !CueDoc.FileTagNames.Contains(n))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(n => n, StringComparer.Ordinal)];
+        }
         tagTree = ComputeTagTree();
         _allTagNames = [.. GameplayTagsManager.Default.GetAllTags().Select(t => t.Name).OrderBy(n => n, StringComparer.Ordinal)];
-        _newTags = [.. CatalogSearch.AllTagOccurrences(Document.Effects)
-            .Select(o => o.Tag.Name)
-            .Where(n => !Document.FileTagNames.Contains(n))
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(n => n, StringComparer.Ordinal)];
         SyncDirtyFlag();
     }
 
     /// <summary>把脏标记同步给页面的 beforeunload 守卫（见 App.razor 的内联脚本）。编辑事件里
-    /// 同步调用，互操作异步执行、失败静默（预渲染阶段没有电路）。</summary>
+    /// 同步调用，互操作异步执行、失败静默（预渲染阶段没有电路）。脏标记取自两个文档中
+    /// 任意一个——只要有未保存的就拦住关闭。</summary>
     private void SyncDirtyFlag() => _ = SyncDirtyFlagAsync();
 
     private async Task SyncDirtyFlagAsync()
     {
         try
         {
-            await JS.InvokeVoidAsync("gasDirty.set", Document.Dirty);
+            await JS.InvokeVoidAsync("gasDirty.set", Document.Dirty || CueDoc.Dirty);
         }
         catch (JSDisconnectedException)
         {

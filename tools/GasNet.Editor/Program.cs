@@ -13,6 +13,7 @@ GasNetLog.OnError = msg => { logBuffer.Add(msg); Console.Error.WriteLine("[GasNe
 builder.Services.AddSingleton(logBuffer);
 builder.Services.AddSingleton<EditorProfile>();
 builder.Services.AddSingleton<CatalogDocument>();
+builder.Services.AddSingleton<CueDocument>();
 
 var app = builder.Build();
 app.UseStaticFiles();
