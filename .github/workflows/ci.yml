@@ -3,7 +3,18 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/CODEOWNERS'
   pull_request:
+
+  # Note: `paths-ignore` is intentionally not set on `pull_request`.
+  # GitHub does not evaluate path filters on PRs from forks (it can't
+  # read the diff), so docs-only PRs still get a full build to prove
+  # the catalog data and any embedded code samples still compile.
 
 jobs:
   build-test:
