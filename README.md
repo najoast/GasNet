@@ -11,11 +11,11 @@ GasNet.sln
 ├─ src/GasNet.Sample    示例内容：属性集、GE 定义、能力、Cue（对应文档 §2 的示例工程）
 ├─ src/GasNet.Demo      可运行的战斗脚本演示（控制台 transcript）
 ├─ tools/GasNet.Editor  本地 Web 编辑器（Blazor Server）：可视化编辑 GE 目录 JSON
-└─ tests/GasNet.Tests   102 个 xUnit 测试，把文档语义锁进断言
+└─ tests/GasNet.Tests   116 个 xUnit 测试，把文档语义锁进断言
 ```
 
 ```bash
-dotnet test GasNet.sln                          # 102/102 通过
+dotnet test GasNet.sln                          # 128/128 通过（含 Editor 的 12 个）
 dotnet run --project src/GasNet.Demo            # 10 幕战斗 transcript
 dotnet run --project tools/GasNet.Editor        # 启动编辑器 → http://localhost:5177
 ```
@@ -56,7 +56,7 @@ dotnet run --project tools/GasNet.Editor        # 启动编辑器 → http://loc
 | Input (§4.6.2) | `AbilityLocalInputPressed/Released(inputID)` + `NotifyInputReleased` | "按住生效"型能力在 Release 时结束 |
 | GameplayCue (§4.8) | `GameplayCueNotify_Static/_Actor` + `GameplayCueManager` | Instant/周期 → `Executed`；Duration/Infinite → `Added(OnActive+WhileActive)`/`Removed`；按 (target, tag) 管理实例、父级标签回溯查找 |
 | `UAbilitySystemGlobals` (§4.9) | `AbilitySystemGlobals` | `InitGlobalData()` + 全局 CueManager |
-| Ability Task (§4.7) | `GameplayAbility.OnAbilityTick(dt)` | 简化为能力级 Tick 钩子（见"偏差"） |
+| Ability Task (§4.7) | `AbilityTask` + `WaitDelay` / `WaitInputPress` / `WaitInputRelease` / `WaitGameplayEvent` | 任务由 `ASC.Tick` 推进、`EndAbility` 统一回收；等目标数据用宿主事件 + `WaitGameplayEvent` 表达；`OnAbilityTick` 仍是能力级 Tick 兜底 |
 
 ## 关键语义（与文档逐条对应）
 
@@ -87,7 +87,7 @@ ExecCalc 可 `MarkGameplayCuesHandledManually()` 抑制。
   接入"服务端权威 + 前端纯表现"的网络架构的方案见 [docs/networking.md](docs/networking.md)。
 - **时间由宿主驱动**：ASC 不自带心跳，需周期调用 `ASC.Tick(dt)`；测试/回放注入 `ManualTimeSource`。
 - **数据驱动为"JSON 目录 + 宿主注册"模型**（见下方"数据驱动"一节）：无 .ini/.udt 资产管线；标签仍是运行时注册（JSON 里的标签名首次出现时自动注册，不校验预先存在的标签表）；无曲线（`ScalableFloatMagnitude.ValuePerLevel` 代替）；无蓝图（逻辑类 ExecCalc/MMC/CAR/Ability 以"类型名 + 宿主注册"从数据中引用）。
-- **AbilityTask 简化**：文档 §4.7 的任务系统用 `OnAbilityTick` 钩子 + C# 事件代替（`WaitTargetData`/蒙辰类任务不在范围内）。
+- **AbilityTask 为轻量子集**（§4.7）：内置 `WaitDelay` / `WaitInputPress` / `WaitInputRelease` / `WaitGameplayEvent`——任务挂在激活的 spec 上、由 `ASC.Tick` 推进（`ManualTimeSource` 下确定性）、`EndAbility` 时统一回收（取消触发 OnCancelled），定时/等输入/等事件的子动作不再需要手写 `OnAbilityTick` 计时器；NonInstanced 能力不能承载任务（同引擎）。蒙太奇类任务与 `WaitTargetData` 不在范围内：等目标数据用宿主事件 + `WaitGameplayEvent` 表达。
 - **堆叠修饰符不随层数翻倍**：与引擎一致——堆叠只增加 `StackCount` 并驱动刷新/过期策略；"每层 +X"请用 SetByCaller 或层变化事件（示例中的护甲栈以"存在即 +10、受击掉层"表达）。
 - **乘/除为引擎默认求和**（非文档 §4.5.4.1 的引擎补丁版逐项相乘），并额外提供 `OnlyStrongestSlow_AllOtherMods` 限定器实现 §5.7 的"只取最强减速"。
 - **AbilitySpec 无网络作用域锁**：单线程下用快照迭代代替 `ABILITYLIST_SCOPE_LOCK`。

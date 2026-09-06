@@ -327,6 +327,30 @@ public abstract class GameplayAbility
 
     // ---------------- Helpers for subclasses ----------------
 
+    /// <summary>
+    /// Registers an ability task on the active spec (UE: tasks are created during activation, doc §4.7).
+    /// Returns null (with a warning) when the ability cannot host tasks: NonInstanced abilities run
+    /// on the shared prototype and must stay stateless, and tasks only exist while the ability is active.
+    /// </summary>
+    public TTask? SpawnTask<TTask>(TTask task) where TTask : AbilityTask
+    {
+        if (InstancingPolicy == GameplayAbilityInstancingPolicy.NonInstanced)
+        {
+            GasNetLog.Warn($"{GetType().Name}.SpawnTask: NonInstanced abilities cannot host ability tasks (doc §4.6.7).");
+            return null;
+        }
+        var spec = FindSpec();
+        if (spec is null || !IsActive)
+        {
+            GasNetLog.Warn($"{GetType().Name}.SpawnTask: ability tasks can only be spawned while the ability is active.");
+            return null;
+        }
+        task.Attach(spec);
+        spec.AddTask(task);
+        task.Activate();
+        return task;
+    }
+
     /// <summary>Builds a spec from the ability, post-activation (uses the current actor info).</summary>
     protected GameplayEffectSpec MakeAbilityEffectSpec(GameplayEffectDefinition def) =>
         MakeAbilityEffectSpecFor(def, OwnerASC ?? throw new InvalidOperationException("Ability has no owner ASC."),

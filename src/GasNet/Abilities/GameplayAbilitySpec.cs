@@ -22,6 +22,9 @@ public sealed class GameplayAbilitySpec
     public bool IsActive { get; internal set; }
     public bool InputPressed { get; internal set; }
 
+    /// <summary>Ability tasks spawned by the current activation; cleared when the ability ends (doc §4.7).</summary>
+    public List<AbilityTask> Tasks { get; } = [];
+
     /// <summary>When set (by a GE removal policy), the ASC clears this ability as soon as it ends.</summary>
     internal bool RemoveAbilityOnEnd { get; set; }
 
@@ -43,6 +46,35 @@ public sealed class GameplayAbilitySpec
         Ability = (GameplayAbility)Activator.CreateInstance(abilityType)!;
         Level = level;
         InputID = inputID;
+    }
+
+    internal void AddTask(AbilityTask task) => Tasks.Add(task);
+    internal void RemoveTask(AbilityTask task) => Tasks.Remove(task);
+
+    /// <summary>Ticks all valid tasks (snapshot: a task may end the ability or other tasks mid-loop).</summary>
+    internal void TickTasks(float deltaTime)
+    {
+        foreach (var task in Tasks.ToArray())
+            task.Tick(deltaTime);
+    }
+
+    /// <summary>Tears down every remaining task — called when the ability ends (doc §4.7).</summary>
+    internal void EndAllTasks(AbilityTaskEndReason reason)
+    {
+        foreach (var task in Tasks.ToArray())
+            task.End(reason);
+    }
+
+    internal void NotifyTasksInputPressed()
+    {
+        foreach (var task in Tasks.ToArray())
+            task.NotifyInputPressed();
+    }
+
+    internal void NotifyTasksInputReleased()
+    {
+        foreach (var task in Tasks.ToArray())
+            task.NotifyInputReleased();
     }
 
     public bool MatchesTags(GameplayTagContainer tags, bool exact = false) =>

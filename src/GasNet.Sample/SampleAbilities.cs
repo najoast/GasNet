@@ -68,11 +68,12 @@ public class GA_Fireball : GameplayAbility
 /// <summary>
 /// Sprint: applied as an Infinite GE on activation; drains stamina every second; ends on input
 /// release or when stamina runs out (sample project: "constantly draining stamina to sprint").
+/// Built entirely from ability tasks: a WaitInputRelease ends the ability, and a chained
+/// WaitDelay replaces the hand-written per-second accumulator.
 /// </summary>
 public class GA_Sprint : GameplayAbility
 {
     private ActiveGameplayEffectHandle _sprintEffect;
-    private float _drainAccumulator;
 
     public GA_Sprint()
     {
@@ -82,17 +83,23 @@ public class GA_Sprint : GameplayAbility
 
     protected override void ActivateAbility()
     {
-        _drainAccumulator = 0f;
         _sprintEffect = OwnerASC!.ApplyGameplayEffectToSelf(SampleGE.Sprint) ?? default;
         Console.WriteLine("  [GA] Sprint started (MoveSpeed x1.5).");
+
+        ScheduleDrain();
+        AbilityTask_WaitInputRelease.WaitForInputRelease(this,
+            onRelease: () =>
+            {
+                Console.WriteLine("  [GA] Sprint input released.");
+                EndAbility(wasCancelled: false);
+            });
     }
 
-    public override void OnAbilityTick(float deltaTime)
+    // One-shot delay task per drain tick; re-arm until out of stamina (doc §4.7 task chaining).
+    private void ScheduleDrain()
     {
-        _drainAccumulator += deltaTime;
-        while (_drainAccumulator >= 1f)
+        AbilityTask_WaitDelay.WaitForDelay(this, 1f, onFire: () =>
         {
-            _drainAccumulator -= 1f;
             OwnerASC!.ApplyGameplayEffectToSelf(SampleGE.StaminaDrain);
             if (OwnerASC.GetNumericAttribute(SampleAttributeSet.StaminaAttribute) <= 0f)
             {
@@ -100,14 +107,8 @@ public class GA_Sprint : GameplayAbility
                 EndAbility(wasCancelled: true);
                 return;
             }
-        }
-    }
-
-    /// <summary>"WhileInputActive" style: releasing the bound input ends the ability.</summary>
-    public override void NotifyInputReleased()
-    {
-        Console.WriteLine("  [GA] Sprint input released.");
-        EndAbility(wasCancelled: false);
+            ScheduleDrain();
+        });
     }
 
     public override void EndAbility(bool wasCancelled)
@@ -139,12 +140,11 @@ public class GA_Jump : GameplayAbility
 
 /// <summary>
 /// Passive: auto-activates on grant (bActivateAbilityOnGranted, doc 4.6.4.1) and adds one armor
-/// stack every 4 seconds, up to 4 (sample project "Passive Armor Stacks").
+/// stack every 4 seconds, up to 4 (sample project "Passive Armor Stacks"). The repeating timer is
+/// a self-rearming WaitDelay chain; the passive stays active, so the chain never ends on its own.
 /// </summary>
 public class GA_PassiveArmorStacks : GameplayAbility
 {
-    private float _timer;
-
     public GA_PassiveArmorStacks()
     {
         AbilityTags.AddTag(ST.AbilityDefense);
@@ -152,18 +152,21 @@ public class GA_PassiveArmorStacks : GameplayAbility
         bActivateAbilityOnGranted = true;
     }
 
-    protected override void ActivateAbility() =>
-        Console.WriteLine("  [GA] Passive Armor Stacks online (+1 stack / 4s, max 4).");
-
-    public override void OnAbilityTick(float deltaTime)
+    protected override void ActivateAbility()
     {
-        _timer += deltaTime;
-        if (_timer < 4f)
-            return;
-        _timer = 0f;
-        // Re-applying a stacking GE increments the stack count up to StackLimitCount (doc 4.5.5).
-        OwnerASC!.ApplyGameplayEffectToSelf(SampleGE.ArmorStack);
-        Console.WriteLine($"  [GA] Passive granted an armor stack (now {CurrentStackCount()}/4).");
+        Console.WriteLine("  [GA] Passive Armor Stacks online (+1 stack / 4s, max 4).");
+        ScheduleNextStack();
+    }
+
+    private void ScheduleNextStack()
+    {
+        AbilityTask_WaitDelay.WaitForDelay(this, 4f, onFire: () =>
+        {
+            // Re-applying a stacking GE increments the stack count up to StackLimitCount (doc 4.5.5).
+            OwnerASC!.ApplyGameplayEffectToSelf(SampleGE.ArmorStack);
+            Console.WriteLine($"  [GA] Passive granted an armor stack (now {CurrentStackCount()}/4).");
+            ScheduleNextStack();
+        });
     }
 
     private int CurrentStackCount()

@@ -175,6 +175,9 @@ public sealed partial class AbilitySystemComponent
             return;
 
         spec.IsActive = false;
+        // Tasks die with the ability; their callbacks run before owned tags go so they observe
+        // the full ending state (doc §4.7).
+        spec.EndAllTasks(wasCancelled ? AbilityTaskEndReason.Cancelled : AbilityTaskEndReason.AbilityEnded);
         RemoveTagsFromOwned(ability.ActivationOwnedTags);
         if (spec.Ability.InstancingPolicy == GameplayAbilityInstancingPolicy.InstancedPerExecution)
             spec.Instance = null;
@@ -244,7 +247,10 @@ public sealed partial class AbilitySystemComponent
             if (!spec.IsActive)
                 TryActivateAbility(spec.Handle);
             else
+            {
                 (spec.Instance ?? spec.Ability).NotifyInputPressed();
+                spec.NotifyTasksInputPressed();
+            }
         }
     }
 
@@ -256,11 +262,20 @@ public sealed partial class AbilitySystemComponent
                 continue;
             spec.InputPressed = false;
             if (spec.IsActive)
+            {
                 (spec.Instance ?? spec.Ability).NotifyInputReleased();
+                spec.NotifyTasksInputReleased();
+            }
         }
     }
 
     // ---------------- Gameplay events & tag triggers (doc §4.6.4, §4.6.11) ----------------
+
+    /// <summary>
+    /// Raised for every <see cref="HandleGameplayEvent"/> call — the seam ability tasks use to
+    /// listen for gameplay events (<see cref="AbilityTask_WaitGameplayEvent"/>).
+    /// </summary>
+    public event Action<GameplayTag, GameplayEventData>? OnGameplayEvent;
 
     /// <summary>
     /// Routes a gameplay event to granted abilities with a matching GameplayEvent trigger
@@ -269,6 +284,7 @@ public sealed partial class AbilitySystemComponent
     public void HandleGameplayEvent(GameplayTag eventTag, GameplayEventData? eventData = null)
     {
         eventData ??= new GameplayEventData { EventTag = eventTag };
+        OnGameplayEvent?.Invoke(eventTag, eventData);
         foreach (var spec in GrantedAbilities.ToArray())
         {
             if (spec.IsActive)

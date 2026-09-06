@@ -39,6 +39,10 @@ public sealed partial class AbilitySystemComponent : IGameplayTagAssetInterface
         {
             if (!spec.IsActive)
                 continue;
+            // Ability tasks tick ahead of the ability hook; a task may end the ability (doc §4.7).
+            spec.TickTasks(deltaTime);
+            if (!spec.IsActive)
+                continue;
             var instance = spec.Instance ?? (spec.Ability.InstancingPolicy == GameplayAbilityInstancingPolicy.NonInstanced ? spec.Ability : null);
             instance?.OnAbilityTick(deltaTime);
         }
