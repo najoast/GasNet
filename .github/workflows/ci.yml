@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET SDKs
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build solution (ns2.1 + net10.0 multi-target)
+        run: dotnet build GasNet.sln -c Release
+
+      - name: Run tests
+        run: dotnet test GasNet.sln -c Release --no-build
+
+      - name: Demo transcript runs end-to-end
+        run: dotnet run --project src/GasNet.Demo -c Release --no-build
+
+      # Deliberately outside the sln (same reason as locally): verifies the net8.0 consumer
+      # really picks up the netstandard2.1 core build.
+      - name: Godot demo builds against the core library
+        run: dotnet build examples/GodotDemo -c Release
