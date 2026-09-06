@@ -11,7 +11,7 @@ GasNet.sln
 ├─ src/GasNet.Sample    示例内容：属性集、GE 定义、能力、Cue（对应文档 §2 的示例工程）
 ├─ src/GasNet.Demo      可运行的战斗脚本演示（控制台 transcript）
 ├─ tools/GasNet.Editor  本地 Web 编辑器（Blazor Server）：可视化编辑 GE 目录 JSON
-└─ tests/GasNet.Tests   116 个 xUnit 测试，把文档语义锁进断言
+└─ tests/GasNet.Tests   117 个 xUnit 测试，把文档语义锁进断言
 ```
 
 ```bash
@@ -117,6 +117,21 @@ asc.RegisterGameplayTagEvent(MyTags.Stunned, GameplayTagEventType.NewOrRemoved, 
 ExecCalc 伤害）、Sprint（Infinite GE + 每秒体力消耗、输入释放结束）、Jump（NonInstanced）、
 Passive Armor Stacks（4 秒 1 层、上限 4、受击掉层）、CounterAttack（Event.Hit 触发），
 以及眩晕、减速、叠加护甲、周期治疗等 GE 和静态/Actor 两类 Cue。
+
+## 组合用例演示（examples/UseCases）
+
+[`examples/UseCases`](./examples/UseCases) 是一个独立的 console 项目，把多个 API 串成
+**可读的端到端场景**——能力任务链、Tag 触发的取消、宿主事件做目标、数据驱动的法术配置、
+网络桥接的 DTO 流。它补的是 `GasNet.Tests` 单测够不到的那一维：把多条代码路径在同一个
+固定时钟世界（`SimWorld` + `ManualTimeSource`）里跑出确定输出，输出本身就是文档。
+
+```bash
+cd examples/UseCases
+dotnet run
+```
+
+5 个场景（可按名字过滤：`dotnet run -- Channel`），退出码 = 失败场景数；同时被 CI 当 smoke test 跑。
+详见 [examples/UseCases/README.md](./examples/UseCases/README.md)。
 
 ## 数据驱动（src/GasNet.Data）
 

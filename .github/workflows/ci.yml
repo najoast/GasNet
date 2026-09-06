@@ -31,3 +31,11 @@ jobs:
       # really picks up the netstandard2.1 core build.
       - name: Godot demo builds against the core library
         run: dotnet build examples/GodotDemo -c Release
+
+      # UseCases is a smoke test that exercises combined scenarios (tasks + tags + data + bridge).
+      # stderr noise from the catalog loader is expected (tag-only GEs) — the exit code is the truth.
+      - name: Build UseCases
+        run: dotnet build examples/UseCases -c Release
+
+      - name: UseCases scenarios run end-to-end
+        run: dotnet run --project examples/UseCases -c Release --no-build 2>/dev/null

@@ -1,0 +1,55 @@
+{
+  "effects": {
+    "Damage": {
+      "durationPolicy": "Instant",
+      "modifiers": [
+        { "attribute": "BattleAttributeSet.MetaDamage", "op": "Add",
+          "magnitude": { "type": "setByCaller", "tag": "Data.Damage" } }
+      ]
+    },
+    "Burn": {
+      "durationPolicy": "HasDuration", "duration": 3, "period": 1,
+      "grantedTags": ["State.Burning"],
+      "modifiers": [
+        { "attribute": "BattleAttributeSet.Health", "op": "Add",
+          "magnitude": { "type": "scalableFloat", "value": -4 } }
+      ]
+    },
+    "HealOverTime": {
+      "durationPolicy": "HasDuration", "duration": 3, "period": 1,
+      "modifiers": [
+        { "attribute": "BattleAttributeSet.Health", "op": "Add",
+          "magnitude": { "type": "scalableFloat", "value": 6 } }
+      ]
+    },
+    "FireballCost": {
+      "durationPolicy": "Instant",
+      "modifiers": [
+        { "attribute": "BattleAttributeSet.Mana", "op": "Add",
+          "magnitude": { "type": "scalableFloat", "value": -10 } }
+      ]
+    },
+    "FireballCooldown": {
+      "durationPolicy": "HasDuration", "duration": 2,
+      "grantedTags": ["Cooldown.Fireball"]
+    },
+    "Stun": {
+      "durationPolicy": "HasDuration", "duration": 2,
+      "grantedTags": ["State.Debuff.Stun"]
+    },
+    "GuardUp": {
+      "durationPolicy": "HasDuration", "duration": 4,
+      "modifiers": [
+        { "attribute": "BattleAttributeSet.MoveSpeed", "op": "Multiply",
+          "magnitude": { "type": "scalableFloat", "value": 1.5 } }
+      ]
+    },
+    "StaminaDrain": {
+      "durationPolicy": "Instant",
+      "modifiers": [
+        { "attribute": "BattleAttributeSet.Stamina", "op": "Add",
+          "magnitude": { "type": "scalableFloat", "value": -5 } }
+      ]
+    }
+  }
+}
