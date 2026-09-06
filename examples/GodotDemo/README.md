@@ -19,17 +19,21 @@ restore 时自动选用其 **netstandard2.1** 产物（Godot 的 net8.0 消费�
 | 时间 | `GasNetBridge.cs` `GodotTimeSource` | `ITimeSource` 包一层 `Time.GetTicksMsec()`，所有 ASC 共享引擎时钟 |
 | 宿主 | `GasNetBridge.cs` `GasActor` | Node 持有 ASC；`_Ready` 里 `InitAbilityActorInfo`，`_Process` 里 `ASC.Tick(dt)` |
 | 内容 | `BattleContent.cs` | AttributeSet / Ability 全是普通 C# 类，零引擎依赖 |
-| 表现 | `GasNetBridge.cs` `HitCueNotify` | 继承 `GameplayCueNotify_Static`，把 `GameplayCue.Combat.Hit` 事件翻译成闪白 + 日志 |
+| 表现 | `Scripts/CueActions/*.cs` + `Data/BattleCue.json` | 3 个 `CueAction` 子类（Flash / Shake / Log）；`BattleData.Load()` 走 `GameplayCueRuntime` 把 JSON 描述的 cue 注入管理器 |
 
-`Scripts/Main.cs` 负责场景组装：注册 Cue、把属性变化接到日志 Label、把空格键映射到
+`Scripts/Main.cs` 负责场景组装：把属性变化接到日志 Label、把空格键映射到
 `ASC.AbilityLocalInputPressed(1)`。
 
-## 数据驱动的 GE
+## 数据驱动的 GE + Cue
 
-三个 GE 定义不在代码里，而在 [`Data/BattleGE.json`](Data/BattleGE.json)，由 `src/GasNet.Data`
-在 `BattleData.Load()` 时加载（`GasNetDataLoader`）。属性以 `"SetTypeName.AttributeName"` 引用、
-标签按运行时注册模型自动注册；改 JSON 里的数值（血量/攻击力）即可调参，无需重编译 C# 代码。
-字段格式见根 README 的"数据驱动"一节。
+GE 定义在 [`Data/BattleGE.json`](Data/BattleGE.json)，
+Cue 定义在 [`Data/BattleCue.json`](Data/BattleCue.json)，
+都在 `BattleData.Load()` 里加载。改 JSON 即可调参或加新 cue，无需重编译 C# 代码。
+Cue 字段格式见根 README 的"数据驱动"一节。
+
+按设计 Godot demo **只注册 3 个内置动作**（Flash / Shake / Log）。`BattleCue.json` 故意不写
+vfx/animation/audio 三个动作——本 demo 不接 VFX/Anim/Audio。Blazor 编辑器里 6 个动作类型都可见，
+Unity 侧的 `BattleCue.json` 才写它们。
 
 ## 说明
 

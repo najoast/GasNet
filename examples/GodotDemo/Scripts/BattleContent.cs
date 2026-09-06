@@ -64,6 +64,18 @@ public static class BattleData
 		InitStatsHero = catalog.Get("GE_InitStats_Hero");
 		InitStatsEnemy = catalog.Get("GE_InitStats_Enemy");
 		Damage = catalog.Get("GE_Damage");
+
+		// Cue catalog: bind BattleCue.json into the GameplayCueManager via runtime adapter.
+		// 跨引擎约束：本 demo 只注册 3 个内置动作（Flash / Shake / Log）。vfx / animation / audio
+		// 故意不注册——按设计如此：Godot 2D demo 不接 VFX/Anim/Audio，Blazor 编辑器里仍可见这两
+		// 三个动作类型，Unity 侧的 JSON 才写它们。
+		var cueOptions = new GasNetDataCueLoadOptions()
+			.RegisterActionType<GodotDemo.CueActions.FlashCueAction>(GodotDemo.CueActions.FlashCueAction.Schema)
+			.RegisterActionType<GodotDemo.CueActions.ShakeCueAction>(GodotDemo.CueActions.ShakeCueAction.Schema)
+			.RegisterActionType<GodotDemo.CueActions.LogCueAction>(GodotDemo.CueActions.LogCueAction.Schema);
+		var cueCatalog = GasNetDataCueLoader.LoadCueFile(
+			ProjectSettings.GlobalizePath("res://Data/BattleCue.json"), cueOptions);
+		new GameplayCueRuntime(AbilitySystemGlobals.Get().GameplayCueManager, cueOptions).RegisterAll(cueCatalog);
 	}
 }
 

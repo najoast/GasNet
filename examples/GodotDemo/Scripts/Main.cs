@@ -18,9 +18,8 @@ public sealed partial class Main : Node2D
 	{
 		_log = GetNode<Label>("Log");
 		GasNetLog.OnWarn = GD.PushWarning; // 核心库日志 → Godot 输出面板
-		BattleData.Load(); // GE 定义来自 Data/BattleGE.json（数据驱动层示例）
-
-		AbilitySystemGlobals.Get().GameplayCueManager.RegisterNotify(new HitCueNotify());
+		GasNetLog.OnError = GD.PushError;
+		BattleData.Load(); // GE + Cue 定义均来自 Data/（数据驱动层示例）
 
 		_hero = new Hero();
 		AddChild(_hero);

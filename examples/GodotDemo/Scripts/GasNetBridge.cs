@@ -52,16 +52,25 @@ public abstract partial class GasActor : Node2D, IAbilitySystemInterface
 		}
 	}
 
-	/// <summary>受击闪白，由 GameplayCue 触发（见 HitCueNotify）。</summary>
+	/// <summary>受击闪白：参数化的版本，由 CueAction 触发；老的无参版本保留向后兼容。</summary>
 	public void Flash()
 	{
 		_flash = 0.15f;
 		QueueRedraw();
 	}
 
+	public void Flash(float durationMs, Color flashColor)
+	{
+		_flash = Math.Max(_flash, durationMs * 0.001f);
+		_flashColor = flashColor;
+		QueueRedraw();
+	}
+
+	private Color _flashColor = Colors.White;
+
 	public override void _Draw()
 	{
-		DrawCircle(Vector2.Zero, 26f, _flash > 0f ? Colors.White : BodyColor);
+		DrawCircle(Vector2.Zero, 26f, _flash > 0f ? _flashColor : BodyColor);
 		DrawString(ThemeDB.FallbackFont, new Vector2(-44f, -38f),
 			$"{Name}  {Health:0.#}", HorizontalAlignment.Left, -1, 15, Colors.White);
 	}
@@ -71,19 +80,7 @@ public abstract partial class GasActor : Node2D, IAbilitySystemInterface
 }
 
 /// <summary>
-/// 接缝 4 —— 表现：Cue 通知适配器。核心库只路由 GameplayCue 事件，
-/// 粒子/音效/闪白都由引擎侧的 Notify 子类实现。
+/// 接缝 4 —— 表现：cue 现在是数据驱动的（Data/BattleCue.json）。
+/// CueAction 子类放在 <c>Scripts/CueActions/</c>，由 <c>BattleData.Load()</c> 经
+/// <c>GameplayCueRuntime</c> 注入到 GameplayCueManager。Host 节点不需要单独的 Notify 类。
 /// </summary>
-public sealed class HitCueNotify : GameplayCueNotify_Static
-{
-	public HitCueNotify() => GameplayCueTags.AddTag(DemoTags.CueHit);
-
-	public override void OnExecute(GameplayCueParameters parameters)
-	{
-		if (parameters.Target is GasActor actor)
-		{
-			actor.Flash();
-			GD.Print($"[Cue] {actor.Name} hit! {parameters.Magnitude:0.#} HP ({actor.Health:0.#} left)");
-		}
-	}
-}
