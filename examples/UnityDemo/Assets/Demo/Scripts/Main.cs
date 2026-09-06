@@ -22,9 +22,8 @@ namespace UnityDemo
         private void Start()
         {
             GasNetLog.OnWarn = Debug.LogWarning; // 核心库日志 → Unity Console
-            BattleData.Load();                   // GE 定义来自 StreamingAssets/Data/BattleGE.json（数据驱动层示例）
-
-            AbilitySystemGlobals.Get().GameplayCueManager.RegisterNotify(new HitCueNotify());
+            GasNetLog.OnError = Debug.LogError;
+            BattleData.Load();                   // GE + Cue 定义均来自 StreamingAssets/Data/
 
             var units = new GameObject("Units");
             _hero = CreateUnit<Hero>(units.transform, "Hero", new Vector3(-3.5f, 0f, 0f));

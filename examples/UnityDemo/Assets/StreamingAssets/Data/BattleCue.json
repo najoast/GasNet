@@ -1,0 +1,12 @@
+{
+  "cues": {
+    "Hit": {
+      "tag": "GameplayCue.Combat.Hit",
+      "actions": [
+        { "type": "FlashCueAction", "triggerOn": "Executed", "durationMs": 150 },
+        { "type": "ShakeCueAction", "triggerOn": "Executed", "intensity": 0.25, "durationMs": 60 },
+        { "type": "LogCueAction",   "triggerOn": "Executed", "format": "[Cue] {target} hit! {magnitude:0.#} HP" }
+      ]
+    }
+  }
+}

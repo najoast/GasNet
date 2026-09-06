@@ -29,21 +29,23 @@ powershell -ExecutionPolicy Bypass -File setup.ps1
 | 时间 | `GasActor.cs` `UnityTimeSource` | `ITimeSource` 包一层 `Time.time`，所有 ASC 共享引擎时钟 |
 | 宿主 | `GasActor.cs` `GasActor` | MonoBehaviour 持有 ASC；`Start` 里 `InitAbilityActorInfo`，`Update` 里 `ASC.Tick(Time.deltaTime)` |
 | 内容 | `BattleContent.cs` | AttributeSet / Ability 全是普通 C# 类，零引擎依赖 |
-| 表现 | `GasActor.cs` `HitCueNotify` | 继承 `GameplayCueNotify_Static`，把 `GameplayCue.Combat.Hit` 事件翻译成受击闪白 + Console 日志 |
+| 表现 | `Assets/Demo/Scripts/CueActions/*.cs` + `BattleCue.json` | 6 个 `CueAction` 子类（Flash/Shake/Log/Vfx/Animation/Audio）；`BattleData.Load()` 走 `GameplayCueRuntime` 把 JSON 描述的 cue 注入管理器 |
 
 `Scripts/Main.cs` 负责场景组装：注册 Cue、把属性变化接到屏上日志面板、把空格键映射到
 `ASC.AbilityLocalInputPressed(1)`；敌人自动反击走的也是输入路径（能力绑定 `inputID: 1`）。
 单位 GameObject 与圆形 sprite 全部运行时生成——工程里没有任何美术资产。
 
 注意 Unity 的脚本文件名规则：MonoBehaviour 子类必须放在同名文件里（`GasActor.cs`/`Hero.cs`/
-`Enemy.cs`/`Main.cs`），非组件类（`BattleContent.cs`、`HitCueNotify` 等）则不受限。
+`Enemy.cs`/`Main.cs`），非组件类（`BattleContent.cs`、`CueActions/*` 等）则不受限。
 
-## 数据驱动的 GE
+## 数据驱动的 GE + Cue
 
-三个 GE 定义不在代码里，而在 [`Assets/StreamingAssets/Data/BattleGE.json`](Assets/StreamingAssets/Data/BattleGE.json)，
-由 `src/GasNet.Data` 在 `BattleData.Load()` 时经 `GasNetDataLoader` 加载（内容与 GodotDemo 的
-`Data/BattleGE.json` 相同）。改 JSON 里的数值（血量/攻击力）即可调参，无需重编译 C# 代码。
-字段格式见根 README 的"数据驱动"一节。
+GE 定义在 [`Assets/StreamingAssets/Data/BattleGE.json`](Assets/StreamingAssets/Data/BattleGE.json)，
+Cue 定义在 [`Assets/StreamingAssets/Data/BattleCue.json`](Assets/StreamingAssets/Data/BattleCue.json)，
+都在 `BattleData.Load()` 里加载。改 JSON 即可调参或加新 cue，无需重编译 C# 代码。
+Cue 字段格式见根 README 的"数据驱动"一节。GodotDemo 读同一份 GE JSON 但 cue JSON 只注册 3 个内置
+动作（Flash/Shake/Log），vfx/animation/audio 在 Godot 侧不注册——按设计如此：cue JSON 在编辑器里仍
+可见、Godot demo 启动时加载会报 `unknown cue action type`，提醒"Godot demo 当前不接 vfx/audio"。
 
 ## IL2CPP / 托管代码裁剪
 

@@ -65,12 +65,26 @@ namespace UnityDemo
 
         public static void Load()
         {
+            // ---- GE catalog ----
             var options = new GasNetDataLoadOptions().RegisterAttributeSet<BattleAttributeSet>();
-            var path = Path.Combine(Application.streamingAssetsPath, "Data", "BattleGE.json");
-            var catalog = GasNetDataLoader.LoadCatalogFile(path, options);
+            var gePath = Path.Combine(Application.streamingAssetsPath, "Data", "BattleGE.json");
+            var catalog = GasNetDataLoader.LoadCatalogFile(gePath, options);
             InitStatsHero = catalog.Get("GE_InitStats_Hero");
             InitStatsEnemy = catalog.Get("GE_InitStats_Enemy");
             Damage = catalog.Get("GE_Damage");
+
+            // ---- Cue catalog: bind BattleCue.json into the GameplayCueManager via runtime adapter ----
+            // 跨引擎约束：本 demo 只注册 Unity 6 个内置动作。Godot demo 用同一 JSON，但只注册 3 个（Flash/Shake/Log）。
+            var cueOptions = new GasNetDataCueLoadOptions()
+                .RegisterActionType<UnityDemo.CueActions.FlashCueAction>(UnityDemo.CueActions.FlashCueAction.Schema)
+                .RegisterActionType<UnityDemo.CueActions.ShakeCueAction>(UnityDemo.CueActions.ShakeCueAction.Schema)
+                .RegisterActionType<UnityDemo.CueActions.LogCueAction>(UnityDemo.CueActions.LogCueAction.Schema)
+                .RegisterActionType<UnityDemo.CueActions.VfxCueAction>(UnityDemo.CueActions.VfxCueAction.Schema)
+                .RegisterActionType<UnityDemo.CueActions.AnimationCueAction>(UnityDemo.CueActions.AnimationCueAction.Schema)
+                .RegisterActionType<UnityDemo.CueActions.AudioCueAction>(UnityDemo.CueActions.AudioCueAction.Schema);
+            var cuePath = Path.Combine(Application.streamingAssetsPath, "Data", "BattleCue.json");
+            var cueCatalog = GasNetDataCueLoader.LoadCueFile(cuePath, cueOptions);
+            new GameplayCueRuntime(AbilitySystemGlobals.Get().GameplayCueManager, cueOptions).RegisterAll(cueCatalog);
         }
     }
 

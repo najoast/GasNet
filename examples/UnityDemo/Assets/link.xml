@@ -6,6 +6,8 @@
   <!-- Demo 侧：属性集与逻辑类同样依赖反射 -->
   <assembly fullname="Assembly-CSharp">
     <namespace fullname="UnityDemo" preserve="all"/>
+    <!-- CueAction 子类在运行时被 Activator.CreateInstance 反射构造（见 BattleData.Load） -->
+    <namespace fullname="UnityDemo.CueActions" preserve="all"/>
   </assembly>
 
   <!-- System.Text.Json 反射序列化 GE 目录 -->

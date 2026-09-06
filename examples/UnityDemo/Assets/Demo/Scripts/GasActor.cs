@@ -62,15 +62,23 @@ namespace UnityDemo
                 _flash = Mathf.Max(0f, _flash - Time.deltaTime);
 
             _body.color = _flash > 0f
-                ? Color.white
+                ? _flashColor
                 : IsDead ? new Color(0.3f, 0.3f, 0.3f) : BodyColor;
         }
 
-        /// <summary>受击闪白，由 GameplayCue 触发（见 HitCueNotify）。</summary>
+        /// <summary>受击闪白：参数化的版本，由 CueAction 触发；老的无参版本保留向后兼容。</summary>
         public void Flash()
         {
             _flash = 0.15f;
         }
+
+        public void Flash(float durationMs, Color flashColor)
+        {
+            _flash = Mathf.Max(_flash, durationMs * 0.001f);
+            _flashColor = flashColor;
+        }
+
+        private Color _flashColor = new Color(1f, 1f, 1f, 1f);
 
         private void OnGUI()
         {
@@ -133,27 +141,6 @@ namespace UnityDemo
             var sprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size / 4f);
             sprite.name = "GasActorCircle";
             return sprite;
-        }
-    }
-
-    /// <summary>
-    /// 接缝 4 —— 表现：Cue 通知适配器。核心库只路由 GameplayCue 事件，
-    /// 粒子/音效/闪白都由引擎侧的 Notify 子类实现。
-    /// </summary>
-    public sealed class HitCueNotify : GameplayCueNotify_Static
-    {
-        public HitCueNotify()
-        {
-            GameplayCueTags.AddTag(DemoTags.CueHit);
-        }
-
-        public override void OnExecute(GameplayCueParameters parameters)
-        {
-            if (parameters.Target is GasActor actor)
-            {
-                actor.Flash();
-                Debug.Log($"[Cue] {actor.name} hit! {parameters.Magnitude:0.#} HP ({actor.Health:0.#} left)");
-            }
         }
     }
 }
